@@ -1,0 +1,23 @@
+{
+  "name": "snsplay-marketplace",
+  "owner": {
+    "name": "snsplay",
+    "email": "darkphenix2025@gmail.com"
+  },
+  "metadata": {
+    "description": "Curated Claude Code plugins for productivity and development workflows",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "superpowers",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/obra/superpowers.git"
+      },
+      "description": "Core skills library: TDD, debugging, collaboration patterns, and proven techniques",
+      "version": "4.3.1",
+      "strict": true
+    }
+  ]
+}
