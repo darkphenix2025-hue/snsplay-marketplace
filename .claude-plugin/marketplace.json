@@ -39,7 +39,13 @@
         "./skills/commit-push-pr",
         "./skills/git-cleanup",
         "./skills/architecture-decision",
-        "./skills/system-design"
+        "./skills/system-design",
+        "./skills/agile-workflow",
+        "./skills/prd",
+        "./skills/ralph-tui-prd",
+        "./skills/ralph-tui-create-beads",
+        "./skills/ralph-tui-create-beads-rust",
+        "./skills/ralph-tui-create-json"
       ]
     }
   ]
