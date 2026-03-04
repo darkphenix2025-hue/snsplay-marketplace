@@ -18,6 +18,22 @@
       "description": "Core skills library: TDD, debugging, collaboration patterns, and proven techniques",
       "version": "4.3.1",
       "strict": true
+    },
+    {
+      "name": "product-design",
+      "description": "Product design and development workflow: requirements analysis, architecture design, technical planning, and TDD execution",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/requirements-analysis",
+        "./skills/architecture-decomposition",
+        "./skills/product-design",
+        "./skills/technical-design",
+        "./skills/task-management",
+        "./skills/test-cases",
+        "./skills/task-execution",
+        "./skills/architecture-assembly"
+      ]
     }
   ]
 }
