@@ -47,6 +47,33 @@
         "./skills/ralph-tui-create-beads-rust",
         "./skills/ralph-tui-create-json"
       ]
+    },
+    {
+      "name": "sns-workflow",
+      "description": "SNS marketplace workflow suite: requirements analysis, architecture design, agile workflow, task management, and TDD execution",
+      "version": "1.0.0",
+      "author": { "name": "snsplay" },
+      "source": "./",
+      "strict": false,
+      "category": "workflow",
+      "skills": [
+        "./skills/requirements-analysis",
+        "./skills/architecture-decomposition",
+        "./skills/product-design",
+        "./skills/technical-design",
+        "./skills/task-management",
+        "./skills/test-cases",
+        "./skills/task-execution",
+        "./skills/architecture-assembly",
+        "./skills/task-decomposition",
+        "./skills/brainstorming",
+        "./skills/tdd-workflow",
+        "./skills/commit-push-pr",
+        "./skills/git-cleanup",
+        "./skills/architecture-decision",
+        "./skills/system-design",
+        "./skills/agile-workflow"
+      ]
     }
   ]
 }
