@@ -1,0 +1,75 @@
+{
+  "name": "数据源服务模块",
+  "branchName": "feature/data-source",
+  "description": "统一的数据源服务层，整合AKShare、通达信等多种数据源",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "AKShare数据源集成",
+      "description": "通过统一接口调用AKShare获取A股行情数据",
+      "acceptanceCriteria": [
+        "实现股票列表获取接口",
+        "实现实时行情获取接口",
+        "实现历史K线获取接口",
+        "pytest tests/test_akshare.py passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-002",
+      "title": "通达信实时行情接口",
+      "description": "获取通达信实时行情数据",
+      "acceptanceCriteria": [
+        "实现通达信接口连接",
+        "实现实时行情订阅",
+        "实现行情数据解析",
+        "pytest tests/test_tdx_realtime.py passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    },
+    {
+      "id": "US-003",
+      "title": "通达信历史数据导入",
+      "description": "导入通达信历史行情数据",
+      "acceptanceCriteria": [
+        "支持读取通达信本地数据文件",
+        "支持批量导入历史数据",
+        "数据格式标准化转换",
+        "pytest tests/test_tdx_import.py passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-004",
+      "title": "统一数据接口",
+      "description": "统一的数据访问接口，上层业务不关心数据源细节",
+      "acceptanceCriteria": [
+        "定义统一的数据模型 StockInfo, MarketData",
+        "实现数据源适配器模式 DataSourceAdapter",
+        "提供数据源选择配置",
+        "pytest tests/test_data_adapter.py passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": ["US-001", "US-002", "US-003"],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "name": "策略回测模块",
+  "branchName": "feature/backtest",
+  "description": "基于BackTrader框架的策略回测功能",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "BackTrader框架集成",
+      "description": "集成BackTrader框架，实现回测引擎封装",
+      "acceptanceCriteria": [
+        "集成BackTrader库",
+        "实现数据源适配",
+        "实现回测引擎封装",
+        "pytest tests/test_backtest_engine.py passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    },
+    {
+      "id": "US-002",
+      "title": "自定义策略引擎",
+      "description": "支持用户编写自定义策略",
+      "acceptanceCriteria": [
+        "定义策略模板接口",
+        "支持策略参数配置",
+        "提供策略示例库(双均线、MACD等)",
+        "pytest tests/test_strategy.py passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": ["US-001"],
+      "estimated_hours": 8,
+      "timeout_hours": 16
+    },
+    {
+      "id": "US-003",
+      "title": "回测结果展示",
+      "description": "可视化回测结果",
+      "acceptanceCriteria": [
+        "显示收益曲线图",
+        "显示回测统计指标(收益率、最大回撤、夏普比率)",
+        "显示交易记录明细",
+        "支持导出回测报告",
+        "pnpm typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": ["US-002"],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    }
+  ]
+}

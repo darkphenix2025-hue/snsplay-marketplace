@@ -1,0 +1,57 @@
+{
+  "name": "投资组合管理模块",
+  "branchName": "feature/portfolio",
+  "description": "投资组合管理功能，支持手动录入持仓、追踪收益",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "持仓数据模型",
+      "description": "定义持仓数据模型，支持数据持久化",
+      "acceptanceCriteria": [
+        "定义Position数据模型",
+        "定义Portfolio聚合模型",
+        "实现SQLite数据持久化",
+        "pytest tests/test_models.py passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 2,
+      "timeout_hours": 4
+    },
+    {
+      "id": "US-002",
+      "title": "持仓管理API",
+      "description": "持仓记录增删改查接口",
+      "acceptanceCriteria": [
+        "实现添加持仓接口 POST /positions",
+        "实现编辑持仓接口 PUT /positions/:id",
+        "实现删除持仓接口 DELETE /positions/:id",
+        "实现查询持仓接口 GET /positions",
+        "pytest tests/test_api.py passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": ["US-001"],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-003",
+      "title": "收益计算服务",
+      "description": "自动计算持仓收益",
+      "acceptanceCriteria": [
+        "计算持仓成本",
+        "计算浮动盈亏",
+        "计算收益率",
+        "计算持仓占比",
+        "pytest tests/test_profit.py passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": ["US-002"],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    }
+  ]
+}

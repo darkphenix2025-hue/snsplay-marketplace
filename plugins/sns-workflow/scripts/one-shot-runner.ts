@@ -18,6 +18,7 @@
  */
 
 import { spawn } from 'child_process';
+import { closeSync, constants, mkdirSync, openSync, writeSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
@@ -29,7 +30,7 @@ import {
 } from './preset-utils.ts';
 import { MODEL_NAME_REGEX } from '../types/stage-definitions.ts';
 import type { ApiPreset, CliPreset } from '../types/presets.ts';
-import { vcpLog, isDebugEnabled } from './vcp-logger.ts';
+import { snsplayLog, isDebugEnabled } from './snsplay-logger.ts';
 
 // ================== CONFIGURATION ==================
 
@@ -76,9 +77,23 @@ function makeError(phase: string, error: string, exitCode: number = 2): RunResul
   };
 }
 
-/** Emit result JSON to stdout and exit. Called only after all cleanup is done. */
+/** Emit result JSON to stdout (or file if --output-id set) and exit. */
 function emitAndExit(result: RunResult): never {
-  console.log(JSON.stringify(result.output));
+  if (outputId) {
+    try {
+      const dir = path.join(os.tmpdir(), '.snsplay', 'oneshot');
+      mkdirSync(dir, { recursive: true });
+      const filePath = path.join(dir, `${outputId}.json`);
+      const fd = openSync(filePath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600);
+      writeSync(fd, JSON.stringify(result.output));
+      closeSync(fd);
+    } catch (err) {
+      console.error(`[one-shot-runner] Failed to write output file: ${(err as Error).message}`);
+      process.exit(result.exitCode || 2);
+    }
+  } else {
+    console.log(JSON.stringify(result.output));
+  }
   process.exit(result.exitCode);
 }
 
@@ -92,7 +107,12 @@ interface ParsedArgs {
   task: string;
   /** When true, task text is read from stdin instead of --task arg. */
   taskFromStdin: boolean;
+  /** When set, write result JSON to {tmpdir}/.snsplay/oneshot/{outputId}.json instead of stdout. */
+  outputId: string | null;
 }
+
+/** Module-level output ID — set from parsed args, read by emitAndExit. */
+let outputId: string | null = null;
 
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
@@ -132,14 +152,31 @@ function parseArgs(argv: string[]): ParsedArgs {
       case '--task-stdin':
         result.taskFromStdin = true;
         break;
+      case '--output-id':
+        if (!next) throw new Error('--output-id requires a value');
+        if (!/^[a-zA-Z0-9._-]+$/.test(next)) {
+          throw new Error('--output-id must match /^[a-zA-Z0-9._-]+$/');
+        }
+        if (next.length > 255) {
+          throw new Error('--output-id must be 255 characters or fewer');
+        }
+        result.outputId = next;
+        // Set module-level outputId eagerly so emitAndExit writes to file
+        // even if parseArgs throws later (e.g., missing --preset).
+        outputId = next;
+        i++;
+        break;
     }
   }
+
+  // Default --cwd to process.cwd() when not provided or empty
+  // (CLAUDE_PROJECT_DIR may be unset in some environments)
+  if (!result.cwd) result.cwd = process.cwd();
 
   const missing: string[] = [];
   if (!result.type) missing.push('--type');
   if (!result.preset) missing.push('--preset');
   if (!result.model) missing.push('--model');
-  if (!result.cwd) missing.push('--cwd');
   if (!result.task && !result.taskFromStdin) missing.push('--task or --task-stdin');
 
   if (missing.length > 0) {
@@ -153,6 +190,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   if (!result.taskFromStdin) {
     result.taskFromStdin = false;
   }
+  result.outputId = result.outputId ?? null;
 
   return result as ParsedArgs;
 }
@@ -207,9 +245,9 @@ function substitutePlaceholders(template: string, placeholders: Record<string, s
  * @deprecated Kept for export compatibility. Prefer one_shot_args_template on the preset.
  */
 function findUnsupportedPlaceholders(template: string): string[] {
-  const pipelineOnly = ['output_file', 'schema_path'];
+  const workflowOnly = ['output_file', 'schema_path'];
   const found: string[] = [];
-  for (const ph of pipelineOnly) {
+  for (const ph of workflowOnly) {
     if (template.includes(`{${ph}}`)) found.push(ph);
   }
   return found;
@@ -241,12 +279,13 @@ interface ApiPathDeps {
   spawnTaskRunner(args: ParsedArgs, taskTimeoutMs: number): {
     proc: {
       exitCode: number | null;
-      stdout: ReadableStream<Uint8Array>;
+      /** null when stream mode — stdout goes directly to terminal via 'inherit'. */
+      stdout: ReadableStream<Uint8Array> | null;
       kill(signal?: number | string): void;
     };
     exited: Promise<void>;
   };
-  log: typeof vcpLog;
+  log: typeof snsplayLog;
   /** Override PROCESS_TIMEOUT_BUFFER_MS for testing. */
   processTimeoutBufferMs?: number;
   /** Override KILL_GRACE_MS for testing. */
@@ -256,20 +295,29 @@ interface ApiPathDeps {
 const defaultApiDeps: ApiPathDeps = {
   spawnTaskRunner(args, taskTimeoutMs) {
     const taskRunnerPath = path.join(path.dirname(import.meta.path), 'api-task-runner.ts');
-    const proc = Bun.spawn([
+    // When outputId is set: pipe stdout for JSON capture (no --stream).
+    // Otherwise: stream mode — agent output goes directly to terminal.
+    const useStream = !outputId;
+    const spawnArgs = [
       'bun', taskRunnerPath,
       '--preset', args.preset,
       '--model', args.model,
       '--task-stdin',
       '--cwd', args.cwd,
       '--task-timeout', String(taskTimeoutMs),
-    ], { stdin: 'pipe', stdout: 'pipe', stderr: 'inherit' });
+      ...(useStream ? ['--stream'] : []),
+    ];
+    const proc = Bun.spawn(spawnArgs, {
+      stdin: 'pipe',
+      stdout: useStream ? 'inherit' : 'pipe',
+      stderr: 'inherit',
+    });
     // Write task to stdin — avoids argv size limits (E2BIG) and ps exposure
     proc.stdin.write(args.task);
     proc.stdin.end();
     return { proc, exited: proc.exited.then(() => {}) };
   },
-  log: vcpLog,
+  log: snsplayLog,
 };
 
 async function runApiPath(
@@ -286,8 +334,13 @@ async function runApiPath(
   const taskTimeoutMs = preset.timeout_ms || DEFAULT_API_TIMEOUT_MS;
   const { proc, exited } = deps.spawnTaskRunner(args, taskTimeoutMs);
 
-  // Collect stdout concurrently (start reading before exit to avoid buffer issues)
-  const stdoutPromise = new Response(proc.stdout).text();
+  // Stream mode: stdout is nullish (inherited to terminal), use exit code for result.
+  // Bun returns undefined (not null) for inherited stdout, so use !proc.stdout.
+  // Pipe mode: stdout is a ReadableStream, parse JSON from it.
+  const isStreamMode = !proc.stdout;
+
+  // Only collect stdout when piped (non-stream mode)
+  const stdoutPromise = isStreamMode ? null : new Response(proc.stdout).text();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
@@ -315,7 +368,20 @@ async function runApiPath(
       return makeError('api_execution', 'api-task-runner process timed out', 3);
     }
 
-    const stdout = await stdoutPromise;
+    // Stream mode: agent output already went to terminal. Map exit code to result.
+    if (isStreamMode) {
+      const code = proc.exitCode ?? 2;
+      if (code === 0) {
+        return makeComplete(args.preset, args.model, 'Task completed successfully');
+      } else if (code === 3) {
+        return makeError('api_execution', 'Task execution timed out', 3);
+      } else {
+        return makeError('api_execution', `api-task-runner exited with code ${code}`, code === 1 ? 1 : 2);
+      }
+    }
+
+    // Pipe mode: parse JSON result from stdout
+    const stdout = await stdoutPromise!;
     const lastLine = stdout.trim().split('\n').pop() || '';
 
     if (!lastLine) {
@@ -365,8 +431,8 @@ async function runCliPath(args: ParsedArgs, preset: CliPreset, debugEnabled: boo
     return makeError(
       'validation',
       `CLI preset '${args.preset}' does not have a 'one_shot_args_template' configured. ` +
-      'This template is required for /dev-buddy-once. ' +
-      'Add it via /dev-buddy-config or /dev-buddy-manage-presets. ' +
+      'This template is required for /sns-workflow:once. ' +
+      'Add it via /sns-workflow:dev-config. ' +
       'Example: "exec --full-auto -m {model} \\"{prompt}\\""',
       1,
     );
@@ -398,33 +464,45 @@ async function runCliPath(args: ParsedArgs, preset: CliPreset, debugEnabled: boo
   const substitutedArgs = tokenized.map(token => substitutePlaceholders(token, placeholders));
   const timeoutMs = preset.timeout_ms || DEFAULT_CLI_TIMEOUT_MS;
 
-  await vcpLog(args.cwd, {
+  await snsplayLog(args.cwd, {
     source: 'one-shot-runner', event: 'cli_start', decision: 'info',
     details: `command=${preset.command} model=${args.model}`,
   }, debugEnabled);
+
+  // When outputId is set, pipe stdout for capture; otherwise inherit for terminal visibility.
+  const captureOutput = !!outputId;
+  const stdioConfig: [string, string, string] = captureOutput
+    ? ['inherit', 'pipe', 'inherit']   // pipe stdout, inherit stderr (avoids hang)
+    : ['inherit', 'inherit', 'inherit'];
 
   // Platform-aware command execution
   return new Promise<RunResult>((resolve) => {
     let timedOut = false;
     const isWindows = os.platform() === 'win32';
     let proc: ReturnType<typeof spawn>;
+    const stdoutChunks: Buffer[] = [];
 
     if (isWindows) {
       // CWE-78 prevention: escape args for cmd.exe
       const escapedArgs = substitutedArgs.map(escapeWinArg);
       const fullCommand = `${preset.command} ${escapedArgs.join(' ')}`;
       proc = spawn(fullCommand, [], {
-        stdio: 'inherit',
+        stdio: stdioConfig,
         shell: true,
         cwd: args.cwd,
       });
     } else {
       // Unix: shell: false — no injection risk, args passed as array
       proc = spawn(preset.command, substitutedArgs, {
-        stdio: 'inherit',
+        stdio: stdioConfig,
         shell: false,
         cwd: args.cwd,
       });
+    }
+
+    // Collect stdout when piped
+    if (captureOutput && proc.stdout) {
+      proc.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
     }
 
     // Wall-clock timeout
@@ -448,7 +526,16 @@ async function runCliPath(args: ParsedArgs, preset: CliPreset, debugEnabled: boo
         return;
       }
       if (code === 0) {
-        resolve(makeComplete(args.preset, args.model, 'CLI task completed successfully'));
+        if (captureOutput) {
+          const captured = Buffer.concat(stdoutChunks).toString('utf-8');
+          if (!captured.trim()) {
+            resolve(makeError('cli_execution', 'no capturable output', 2));
+            return;
+          }
+          resolve(makeComplete(args.preset, args.model, captured));
+        } else {
+          resolve(makeComplete(args.preset, args.model, 'CLI task completed successfully'));
+        }
       } else {
         resolve(makeError('cli_execution', `CLI tool exited with code ${code}`, 2));
       }
@@ -467,6 +554,9 @@ async function main(): Promise<void> {
   } catch (err) {
     emitAndExit(makeError('validation', (err as Error).message, 1));
   }
+
+  // Set module-level outputId for emitAndExit
+  outputId = args.outputId;
 
   // Read task from stdin if --task-stdin was set (avoids argv size limits + ps exposure)
   if (args.taskFromStdin) {

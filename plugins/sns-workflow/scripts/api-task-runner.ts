@@ -23,7 +23,7 @@ import path from 'path';
 import { readPresets, maskApiKey } from './preset-utils.ts';
 import { MODEL_NAME_REGEX } from '../types/stage-definitions.ts';
 import { unstable_v2_createSession } from '@anthropic-ai/claude-agent-sdk';
-import { vcpLog, isDebugEnabled } from './vcp-logger.ts';
+import { snsplayLog, isDebugEnabled } from './snsplay-logger.ts';
 import type { ApiPreset } from '../types/presets.ts';
 
 // ================== CONFIGURATION ==================
@@ -399,7 +399,7 @@ export function buildSessionEnv(preset: ApiPreset, modelOverride?: string): Reco
   env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
   env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
   env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
-  env.CLAUDE_CODE_SUBAGENT_MODEL = model;
+  env.CLAUDE_CODE_SUBAGENT_MODEL = 'sonnet'; // Alias — resolved via ANTHROPIC_DEFAULT_SONNET_MODEL
 
   return env;
 }
@@ -459,7 +459,7 @@ export class AnthropicRunner implements AgentRunner {
     const env = buildSessionEnv(this.preset, options.model);
 
     // Debug logging: 4 individual writes (not batched — guaranteed writes on crash)
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_env', decision: 'info',
       details: JSON.stringify(Object.fromEntries(
         Object.entries(env).map(([k, v]) =>
@@ -467,28 +467,28 @@ export class AnthropicRunner implements AgentRunner {
         )
       )),
     }, options.debugEnabled);
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_config', decision: 'info',
       details: `protocol=anthropic model=${options.model} preset=${options.presetName} permissionMode=default`,
     }, options.debugEnabled);
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_system_prompt', decision: 'info',
       details: options.systemPromptContent ?? 'none',
     }, options.debugEnabled);
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_task', decision: 'info',
       details: task,
     }, options.debugEnabled);
 
     let session: any = null;
     try {
-      await vcpLog(options.cwd, {
+      await snsplayLog(options.cwd, {
         source: 'api-task-runner', event: 'session_create', decision: 'info',
         details: `preset=${options.presetName} model=${options.model} key=${maskApiKey(this.preset.api_key)}`,
       }, options.debugEnabled);
 
       session = unstable_v2_createSession({
-        model: options.model,
+        model: 'sonnet', // Alias — resolved to provider model via ANTHROPIC_DEFAULT_SONNET_MODEL env var
         env,
         permissionMode: 'default',
         allowedTools: [...ANTHROPIC_TOOL_NAMES],
@@ -504,7 +504,7 @@ export class AnthropicRunner implements AgentRunner {
         return { result: null, error: `Warmup failed: ${warmup.error}`, timedOut: false };
       }
 
-      await vcpLog(options.cwd, {
+      await snsplayLog(options.cwd, {
         source: 'api-task-runner', event: 'session_ready', decision: 'info',
         details: `preset=${options.presetName} model=${options.model}`,
       }, options.debugEnabled);
@@ -532,15 +532,15 @@ export class OpenAIRunner implements AgentRunner {
 
   async run(task: string, options: AgentRunOptions): Promise<AgentRunResult> {
     // Debug logging: 3 entries (no subprocess env for OpenAI — uses fetch directly)
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_config', decision: 'info',
       details: `protocol=openai model=${options.model} preset=${options.presetName} base_url=${this.preset.base_url} key=${maskApiKey(this.preset.api_key)} maxIterations=${OPENAI_MAX_ITERATIONS}`,
     }, options.debugEnabled);
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_system_prompt', decision: 'info',
       details: options.systemPromptContent ?? 'none',
     }, options.debugEnabled);
-    await vcpLog(options.cwd, {
+    await snsplayLog(options.cwd, {
       source: 'api-task-runner', event: 'session_task', decision: 'info',
       details: task,
     }, options.debugEnabled);
@@ -677,6 +677,10 @@ export interface ParsedArgs {
   taskFromStdin: boolean;
   /** Optional path to a file whose content is appended to the system prompt. */
   systemPrompt?: string;
+  /** Stage type for auto-resolving stage definition (e.g., 'plan-review', 'code-review'). */
+  stageType?: string;
+  /** When true, print result text to stdout instead of JSON wrapper. For one-shot mode. */
+  stream: boolean;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -723,14 +727,25 @@ export function parseArgs(argv: string[]): ParsedArgs {
         result.systemPrompt = next;
         i++;
         break;
+      case '--stage-type':
+        if (!next) throw new Error('--stage-type requires a value');
+        result.stageType = next;
+        i++;
+        break;
+      case '--stream':
+        result.stream = true;
+        break;
     }
   }
+
+  // Default --cwd to process.cwd() when not provided or empty
+  // (CLAUDE_PROJECT_DIR may be unset in some environments)
+  if (!result.cwd) result.cwd = process.cwd();
 
   const missing: string[] = [];
   if (!result.preset) missing.push('--preset');
   if (!result.model) missing.push('--model');
   if (!result.task && !result.taskFromStdin) missing.push('--task or --task-stdin');
-  if (!result.cwd) missing.push('--cwd');
 
   if (missing.length > 0) {
     throw new Error(`Missing required arguments: ${missing.join(', ')}`);
@@ -746,6 +761,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (!result.taskFromStdin) {
     result.taskFromStdin = false;
+  }
+
+  if (!result.stream) {
+    result.stream = false;
   }
 
   return result as ParsedArgs;
@@ -780,12 +799,13 @@ async function main(): Promise<void> {
   let systemPromptContent: string | undefined;
   if (args.systemPrompt) {
     try {
-      // Path validation: must resolve under plugin's docs/ directory (CWE-22)
-      const docsDir = path.resolve(path.join(import.meta.dir, '..', 'docs'));
+      // Path validation: must resolve under plugin root directory (CWE-22)
+      // Allows docs/, system-prompts/, and stages/ subdirectories
+      const pluginRoot = path.resolve(path.join(import.meta.dir, '..'));
       const resolved = path.resolve(args.systemPrompt);
-      const relative = path.relative(docsDir, resolved);
+      const relative = path.relative(pluginRoot, resolved);
       if (relative.startsWith('..') || path.isAbsolute(relative)) {
-        emitAndExit({ event: 'error', phase: 'validation', error: `--system-prompt path must be under plugin docs/ directory. Got: ${args.systemPrompt}` }, 1);
+        emitAndExit({ event: 'error', phase: 'validation', error: `--system-prompt path must be under plugin directory. Got: ${args.systemPrompt}` }, 1);
       }
       systemPromptContent = fs.readFileSync(resolved, 'utf-8');
       if (!systemPromptContent.trim()) {
@@ -798,6 +818,21 @@ async function main(): Promise<void> {
       // Re-throw if not already handled by emitAndExit (which calls process.exit)
       throw err;
     }
+  }
+
+  // Auto-resolve stage definition and compose with system prompt if --stage-type provided
+  if (args.stageType) {
+    const { loadStageDefinition, composePrompt } = await import('./system-prompts.ts');
+    const stagesDir = path.join(import.meta.dir, '..', 'stages');
+    const stageDef = loadStageDefinition(args.stageType, stagesDir);
+    if (!stageDef) {
+      emitAndExit({ event: 'error', phase: 'validation', error: `Stage definition not found for type '${args.stageType}' in ${stagesDir}` }, 1);
+    }
+    // Compose: stage definition content + existing system prompt content (role/guidelines)
+    const roleContent = systemPromptContent ?? '';
+    systemPromptContent = roleContent
+      ? `${stageDef!.content}\n\n---\n\n${roleContent}`
+      : stageDef!.content;
   }
 
   // Load preset — no session yet, emitAndExit is safe
@@ -843,7 +878,23 @@ async function main(): Promise<void> {
     presetName: args.preset,
   });
 
-  // Map AgentRunResult to OutputEvent
+  // Stream mode: plain text to stdout, errors to stderr (for one-shot / stdio:inherit)
+  if (args.stream) {
+    if (result.timedOut) {
+      process.stderr.write('Error: Task execution timed out\n');
+      process.exit(3);
+    } else if (result.error) {
+      process.stderr.write(`Error: ${result.error}\n`);
+      process.exit(2);
+    } else {
+      if (result.result) {
+        process.stdout.write(result.result);
+      }
+      process.exit(0);
+    }
+  }
+
+  // Workflow mode: JSON output
   let output: OutputEvent;
   let exitCode: number;
 

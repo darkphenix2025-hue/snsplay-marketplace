@@ -1,0 +1,40 @@
+{
+  "name": "新闻数据模块",
+  "branchName": "feature/news",
+  "description": "整合AKShare新闻数据源，实现新闻与股票关联",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "AKShare新闻数据获取",
+      "description": "获取财经新闻数据并存储",
+      "acceptanceCriteria": [
+        "集成AKShare新闻接口",
+        "实现新闻数据存储",
+        "支持增量更新",
+        "pytest tests/test_news_fetch.py passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-002",
+      "title": "新闻关联匹配",
+      "description": "实现新闻与股票的关联匹配",
+      "acceptanceCriteria": [
+        "通过股票代码/名称匹配",
+        "通过行业标签匹配",
+        "通过概念标签匹配",
+        "显示匹配相关性",
+        "pytest tests/test_news_match.py passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": ["US-001"],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    }
+  ]
+}

@@ -76,27 +76,31 @@ describe('cli-executor.ts', () => {
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-executor-test-'));
-    fs.mkdirSync(path.join(tempDir, '.vcp', 'task'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, '.snsplay', 'task'), { recursive: true });
 
     mockPluginRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mock-plugin-'));
-    fs.mkdirSync(path.join(mockPluginRoot, 'docs', 'schemas'), { recursive: true });
+    fs.mkdirSync(path.join(mockPluginRoot, 'rules', 'schemas'), { recursive: true });
     fs.writeFileSync(
-      path.join(mockPluginRoot, 'docs', 'schemas', 'plan-review.schema.json'),
+      path.join(mockPluginRoot, 'rules', 'schemas', 'plan-review.schema.json'),
       JSON.stringify({ type: 'object' })
     );
     fs.writeFileSync(
-      path.join(mockPluginRoot, 'docs', 'schemas', 'review-result.schema.json'),
+      path.join(mockPluginRoot, 'rules', 'schemas', 'review-result.schema.json'),
       JSON.stringify({ type: 'object' })
     );
     fs.writeFileSync(
-      path.join(mockPluginRoot, 'docs', 'review-guidelines.md'),
-      '# Review Guidelines\n\nReview guidelines here.'
+      path.join(mockPluginRoot, 'rules', 'plan-review-guidelines.md'),
+      '# Plan Review Guidelines\n\nPlan review guidelines here.'
+    );
+    fs.writeFileSync(
+      path.join(mockPluginRoot, 'rules', 'code-review-guidelines.md'),
+      '# Code Review Guidelines\n\nCode review guidelines here.'
     );
 
     mockHome = fs.mkdtempSync(path.join(os.tmpdir(), 'mock-home-'));
-    fs.mkdirSync(path.join(mockHome, '.vcp'), { recursive: true });
+    fs.mkdirSync(path.join(mockHome, '.snsplay'), { recursive: true });
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(MOCK_PRESETS_CONFIG, null, 2)
     );
   });
@@ -174,7 +178,7 @@ describe('cli-executor.ts', () => {
 
   test('fails with missing --model argument', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -223,7 +227,7 @@ describe('cli-executor.ts', () => {
 
   test('fails when model not in preset models list', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -272,10 +276,10 @@ describe('cli-executor.ts', () => {
 
   test('fails when schema file missing', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
-    fs.unlinkSync(path.join(mockPluginRoot, 'docs', 'schemas', 'plan-review.schema.json'));
+    fs.unlinkSync(path.join(mockPluginRoot, 'rules', 'schemas', 'plan-review.schema.json'));
 
     const result = await runScript(
       ['--type', 'plan', '--preset', MOCK_PRESET_NAME, '--model', 'test-model', '--plugin-root', mockPluginRoot],
@@ -290,12 +294,12 @@ describe('cli-executor.ts', () => {
     )).toBe(true);
   });
 
-  test('fails when review-guidelines.md missing', async () => {
+  test('fails when plan-review-guidelines.md missing', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
-    fs.unlinkSync(path.join(mockPluginRoot, 'docs', 'review-guidelines.md'));
+    fs.unlinkSync(path.join(mockPluginRoot, 'rules', 'plan-review-guidelines.md'));
 
     const result = await runScript(
       ['--type', 'plan', '--preset', MOCK_PRESET_NAME, '--model', 'test-model', '--plugin-root', mockPluginRoot],
@@ -319,7 +323,7 @@ describe('cli-executor.ts', () => {
       mockHome
     );
 
-    const outputPath = path.join(tempDir, '.vcp', 'task', 'plan-review-cli.json');
+    const outputPath = path.join(tempDir, '.snsplay', 'task', 'plan-review-cli.json');
     expect(fs.existsSync(outputPath)).toBe(true);
 
     const output = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
@@ -328,7 +332,7 @@ describe('cli-executor.ts', () => {
   });
 
   test('writes error to --output-file path when specified', async () => {
-    const customOutput = '.vcp/task/plan-review-3.json';
+    const customOutput = '.snsplay/task/plan-review-3.json';
     await runScript(
       [
         '--type', 'plan',
@@ -374,11 +378,11 @@ describe('cli-executor.ts', () => {
 
   test('detects active session from .cli-session-{type} marker', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', '.cli-session-plan'),
+      path.join(tempDir, '.snsplay', 'task', '.cli-session-plan'),
       new Date().toISOString()
     );
 
@@ -395,11 +399,11 @@ describe('cli-executor.ts', () => {
 
   test('plan session marker does not affect code review', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', '.cli-session-plan'),
+      path.join(tempDir, '.snsplay', 'task', '.cli-session-plan'),
       new Date().toISOString()
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'impl-result.json'),
+      path.join(tempDir, '.snsplay', 'task', 'impl-result.json'),
       JSON.stringify({ files: [] })
     );
 
@@ -416,11 +420,11 @@ describe('cli-executor.ts', () => {
 
   test('code session marker triggers sessionActive for code review', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', '.cli-session-code'),
+      path.join(tempDir, '.snsplay', 'task', '.cli-session-code'),
       new Date().toISOString()
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'impl-result.json'),
+      path.join(tempDir, '.snsplay', 'task', 'impl-result.json'),
       JSON.stringify({ files: [] })
     );
 
@@ -437,7 +441,7 @@ describe('cli-executor.ts', () => {
 
   test('--resume flag forces resume mode', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -456,7 +460,7 @@ describe('cli-executor.ts', () => {
 
   test('rejects --output-file with path traversal', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -466,7 +470,7 @@ describe('cli-executor.ts', () => {
         '--preset', MOCK_PRESET_NAME,
         '--model', 'test-model',
         '--plugin-root', mockPluginRoot,
-        '--output-file', '.vcp/task/../../../etc/evil.json',
+        '--output-file', '.snsplay/task/../../../etc/evil.json',
       ],
       tempDir,
       mockHome
@@ -481,7 +485,7 @@ describe('cli-executor.ts', () => {
 
   test('rejects --output-file without .json extension', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -491,7 +495,7 @@ describe('cli-executor.ts', () => {
         '--preset', MOCK_PRESET_NAME,
         '--model', 'test-model',
         '--plugin-root', mockPluginRoot,
-        '--output-file', '.vcp/task/evil.txt',
+        '--output-file', '.snsplay/task/evil.txt',
       ],
       tempDir,
       mockHome
@@ -520,12 +524,12 @@ describe('cli-executor.ts', () => {
       },
     };
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(badPresetsConfig, null, 2)
     );
 
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -546,7 +550,7 @@ describe('cli-executor.ts', () => {
 
   test('--changes-summary is included in start event context', async () => {
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -586,16 +590,16 @@ describe('cli-executor.ts', () => {
       },
     };
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(unquotedPresets, null, 2)
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
     // Session marker + --resume triggers changesSummary prompt path
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', '.cli-session-plan'),
+      path.join(tempDir, '.snsplay', 'task', '.cli-session-plan'),
       new Date().toISOString()
     );
 
@@ -627,7 +631,7 @@ describe('cli-executor.ts', () => {
   test('unquoted placeholder produces single arg per placeholder', async () => {
     // With tokenize-first fix, {prompt} becomes one token then one arg
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -654,7 +658,7 @@ describe('cli-executor.ts', () => {
 
   test('mid-token placeholders produce combined arg values', async () => {
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'config.json'),
+      path.join(mockHome, '.snsplay', 'config.json'),
       JSON.stringify({ debug: true })
     );
     const midTokenPresets = {
@@ -671,11 +675,11 @@ describe('cli-executor.ts', () => {
       },
     };
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(midTokenPresets, null, 2)
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -686,7 +690,7 @@ describe('cli-executor.ts', () => {
     );
 
     // Check debug log for combined args
-    const logPath = path.join(tempDir, '.vcp', 'dev-buddy.log');
+    const logPath = path.join(tempDir, '.snsplay', 'sns-workflow.log');
     expect(fs.existsSync(logPath)).toBe(true);
 
     const logContent = fs.readFileSync(logPath, 'utf8');
@@ -696,11 +700,11 @@ describe('cli-executor.ts', () => {
 
   test('reasoning_effort defaults to medium when not set in preset', async () => {
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'config.json'),
+      path.join(mockHome, '.snsplay', 'config.json'),
       JSON.stringify({ debug: true })
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -710,7 +714,7 @@ describe('cli-executor.ts', () => {
       mockHome
     );
 
-    const logPath = path.join(tempDir, '.vcp', 'dev-buddy.log');
+    const logPath = path.join(tempDir, '.snsplay', 'sns-workflow.log');
     expect(fs.existsSync(logPath)).toBe(true);
 
     const logContent = fs.readFileSync(logPath, 'utf8');
@@ -720,13 +724,13 @@ describe('cli-executor.ts', () => {
 
   // ================== DEBUG LOGGING ==================
 
-  test('writes to .vcp/dev-buddy.log when debug is enabled', async () => {
+  test('writes to .snsplay/sns-workflow.log when debug is enabled', async () => {
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'config.json'),
+      path.join(mockHome, '.snsplay', 'config.json'),
       JSON.stringify({ debug: true })
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -736,7 +740,7 @@ describe('cli-executor.ts', () => {
       mockHome
     );
 
-    const logPath = path.join(tempDir, '.vcp', 'dev-buddy.log');
+    const logPath = path.join(tempDir, '.snsplay', 'sns-workflow.log');
     expect(fs.existsSync(logPath)).toBe(true);
 
     const logContent = fs.readFileSync(logPath, 'utf8');
@@ -760,11 +764,11 @@ describe('cli-executor.ts', () => {
       },
     };
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(badPresets, null, 2)
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -796,11 +800,11 @@ describe('cli-executor.ts', () => {
       },
     };
     fs.writeFileSync(
-      path.join(mockHome, '.vcp', 'ai-presets.json'),
+      path.join(mockHome, '.snsplay', 'ai-presets.json'),
       JSON.stringify(badPresets, null, 2)
     );
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -818,10 +822,10 @@ describe('cli-executor.ts', () => {
     expect(buildError!.error).toContain('model');
   });
 
-  test('does not write .vcp/dev-buddy.log when debug is disabled', async () => {
+  test('does not write .snsplay/sns-workflow.log when debug is disabled', async () => {
     // No debug config file at all
     fs.writeFileSync(
-      path.join(tempDir, '.vcp', 'task', 'plan-refined.json'),
+      path.join(tempDir, '.snsplay', 'task', 'plan-refined.json'),
       JSON.stringify({ id: 'test', steps: [] })
     );
 
@@ -831,7 +835,7 @@ describe('cli-executor.ts', () => {
       mockHome
     );
 
-    const logPath = path.join(tempDir, '.vcp', 'dev-buddy.log');
+    const logPath = path.join(tempDir, '.snsplay', 'sns-workflow.log');
     expect(fs.existsSync(logPath)).toBe(false);
   });
 });

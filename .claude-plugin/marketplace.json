@@ -72,7 +72,8 @@
         "./skills/git-cleanup",
         "./skills/architecture-decision",
         "./skills/system-design",
-        "./skills/agile-workflow"
+        "./skills/agile-workflow",
+        "./skills/dev-config"
       ]
     }
   ]

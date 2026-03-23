@@ -1,0 +1,99 @@
+{
+  "name": "投资分析系统",
+  "description": "综合投资分析平台，整合多数据源，提供行情展示、投资组合管理、策略回测等功能",
+  "created_at": "2026-03-08",
+  "children": [
+    {
+      "id": "T001",
+      "title": "数据源服务模块",
+      "path": "T001/",
+      "status": "pending",
+      "depends_on": [],
+      "user_stories": 4,
+      "estimated_hours": 18
+    },
+    {
+      "id": "T002",
+      "title": "行情展示模块",
+      "path": "T002/",
+      "status": "pending",
+      "depends_on": ["T001"],
+      "user_stories": 3,
+      "estimated_hours": 16
+    },
+    {
+      "id": "T003",
+      "title": "投资组合管理模块",
+      "path": "T003/",
+      "status": "pending",
+      "depends_on": [],
+      "user_stories": 3,
+      "estimated_hours": 10
+    },
+    {
+      "id": "T004",
+      "title": "策略回测模块",
+      "path": "T004/",
+      "status": "pending",
+      "depends_on": ["T001"],
+      "user_stories": 3,
+      "estimated_hours": 20
+    },
+    {
+      "id": "T005",
+      "title": "新闻数据模块",
+      "path": "T005/",
+      "status": "pending",
+      "depends_on": ["T001"],
+      "user_stories": 2,
+      "estimated_hours": 8
+    },
+    {
+      "id": "T006",
+      "title": "应用框架",
+      "path": "T006/",
+      "status": "pending",
+      "depends_on": [],
+      "user_stories": 3,
+      "estimated_hours": 14
+    }
+  ],
+  "integration_tests": [
+    {
+      "id": "IT-001",
+      "description": "数据源→行情展示集成测试",
+      "depends_on": ["T001", "T002"],
+      "status": "pending"
+    },
+    {
+      "id": "IT-002",
+      "description": "数据源→策略回测集成测试",
+      "depends_on": ["T001", "T004"],
+      "status": "pending"
+    },
+    {
+      "id": "IT-003",
+      "description": "数据源→新闻关联集成测试",
+      "depends_on": ["T001", "T005"],
+      "status": "pending"
+    },
+    {
+      "id": "IT-004",
+      "description": "全系统集成测试",
+      "depends_on": ["T001", "T002", "T003", "T004", "T005", "T006"],
+      "status": "pending"
+    }
+  ],
+  "dependency_graph": {
+    "T001": [],
+    "T002": ["T001"],
+    "T003": [],
+    "T004": ["T001"],
+    "T005": ["T001"],
+    "T006": []
+  },
+  "parallel_groups": [
+    ["T001", "T003", "T006"],
+    ["T002", "T004", "T005"]
+  ]
+}
