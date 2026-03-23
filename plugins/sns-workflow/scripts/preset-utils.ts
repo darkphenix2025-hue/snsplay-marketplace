@@ -1,7 +1,7 @@
 /**
  * Preset utilities for AI provider configuration management.
  *
- * Config storage: ~/.vcp/ai-presets.json (cross-platform via os.homedir())
+ * Config storage: ~/.snsplay/ai-presets.json (cross-platform via os.homedir())
  * Provides: path resolution, CRUD operations, maskApiKey(), default preset creation.
  */
 
@@ -16,10 +16,10 @@ export const VALID_CLI_PLACEHOLDERS = new Set([
   'model', 'output_file', 'schema_path', 'prompt', 'reasoning_effort',
 ]);
 
-/** Placeholders required in args_template for pipeline cli-executor to function. */
+/** Placeholders required in args_template for workflow cli-executor to function. */
 export const REQUIRED_ARGS_TEMPLATE_PLACEHOLDERS = ['model', 'prompt', 'output_file'] as const;
 
-/** Valid placeholders for one_shot_args_template (no pipeline context). */
+/** Valid placeholders for one_shot_args_template (no workflow context). */
 export const VALID_ONE_SHOT_PLACEHOLDERS = new Set([
   'model', 'prompt', 'reasoning_effort',
 ]);
@@ -27,11 +27,11 @@ export const VALID_ONE_SHOT_PLACEHOLDERS = new Set([
 /** Placeholders required in one_shot_args_template. */
 export const REQUIRED_ONE_SHOT_PLACEHOLDERS = ['model', 'prompt'] as const;
 
-/** Placeholders forbidden in one_shot_args_template (pipeline-only). */
+/** Placeholders forbidden in one_shot_args_template (workflow-only). */
 export const FORBIDDEN_ONE_SHOT_PLACEHOLDERS = new Set(['output_file', 'schema_path']);
 
-// Cross-platform config directory: ~/.vcp/
-export const CONFIG_DIR = path.join(os.homedir(), '.vcp');
+// Cross-platform config directory: ~/.snsplay/
+export const CONFIG_DIR = path.join(os.homedir(), '.snsplay');
 export const PRESETS_PATH = path.join(CONFIG_DIR, 'ai-presets.json');
 
 /**
@@ -48,7 +48,7 @@ export function maskApiKey(key: string): string {
 
 /**
  * Create the default preset configuration with a single Anthropic subscription preset.
- * Also creates the ~/.vcp/ directory if it does not exist.
+ * Also creates the ~/.snsplay/ directory if it does not exist.
  */
 export function createDefaultPresets(): PresetConfig {
   fs.mkdirSync(CONFIG_DIR, { recursive: true });

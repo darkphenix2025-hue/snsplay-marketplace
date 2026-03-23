@@ -14,7 +14,7 @@ import type { CliPreset } from '../../types/presets.ts';
 // ================== validateCliTemplate ==================
 
 describe('validateCliTemplate', () => {
-  test('accepts valid pipeline template with all required placeholders', () => {
+  test('accepts valid workflow template with all required placeholders', () => {
     const result = validateCliTemplate(
       'exec -m {model} -o {output_file} "{prompt}"',
       'args_template',
@@ -23,7 +23,7 @@ describe('validateCliTemplate', () => {
     expect(result).toBeNull();
   });
 
-  test('rejects pipeline template missing {output_file}', () => {
+  test('rejects workflow template missing {output_file}', () => {
     const result = validateCliTemplate(
       'exec -m {model} "{prompt}"',
       'args_template',
@@ -33,7 +33,7 @@ describe('validateCliTemplate', () => {
     expect(result).toContain('output_file');
   });
 
-  test('rejects pipeline template missing multiple required placeholders', () => {
+  test('rejects workflow template missing multiple required placeholders', () => {
     const result = validateCliTemplate(
       'exec "{prompt}"',
       'args_template',
@@ -128,7 +128,7 @@ describe('validateCliTemplate', () => {
     expect(result).toContain('bogus');
   });
 
-  test('accepts template with all 5 pipeline placeholders', () => {
+  test('accepts template with all 5 workflow placeholders', () => {
     const result = validateCliTemplate(
       'exec -m {model} -o {output_file} --schema {schema_path} -r {reasoning_effort} "{prompt}"',
       'args_template',

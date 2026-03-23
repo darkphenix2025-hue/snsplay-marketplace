@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作流管理配置</title>
+  <script
+    src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"
+    integrity="sha384-HZZ/fukV+9G8gwTNjN7zQDG0Sp7MsZy5DDN6VfY3Be7V9dvQpEpR2jF2HlyFUUjU"
+    crossorigin="anonymous"
+  ></script>
+  <script
+    defer
+    src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"
+    integrity="sha384-9Ax3MmS9AClxJyd5/zafcXXjxmwFhZCdsT6HJoJjarvCaAkJlk5QDzjLJm+Wdx5F"
+    crossorigin="anonymous"
+  ></script>
+  <script src="app-presets.js"></script>
+  <script src="app-chatroom.js"></script>
+  <script src="app-v3.js"></script>
+  <script src="app.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body x-data="snsWorkflowApp()" x-init="init()">
+
+  <header style="display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <h1>工作流管理</h1>
+      <p class="subtitle">AI 工作流配置</p>
+    </div>
+    <button class="theme-toggle" x-on:click="toggleTheme()" x-text="darkMode ? '浅色模式' : '深色模式'"></button>
+  </header>
+
+  <nav>
+    <button
+      x-bind:class="{ active: tab === 'presets' }"
+      x-on:click="tab = 'presets'; loadPresets()"
+    >AI 预设</button>
+    <button
+      x-bind:class="{ active: tab === 'chatroom' }"
+      x-on:click="tab = 'chatroom'; loadChatroomConfig()"
+    >辩论聊天室</button>
+    <span class="nav-separator">|</span>
+    <button
+      x-bind:class="{ active: tab === 'system-prompts' }"
+      x-on:click="tab = 'system-prompts'; loadSystemPrompts()"
+    >系统提示词</button>
+    <button
+      x-bind:class="{ active: tab === 'stages' }"
+      x-on:click="tab = 'stages'; loadStages()"
+    >阶段配置</button>
+    <button
+      x-bind:class="{ active: tab === 'v3workflows' }"
+      x-on:click="tab = 'v3workflows'; loadWorkflows()"
+    >工作流</button>
+    <button
+      x-bind:class="{ active: tab === 'settings' }"
+      x-on:click="tab = 'settings'; loadSettings()"
+    >设置</button>
+  </nav>
+
+  <!-- Error banner -->
+  <div class="error-banner" x-show="errorMsg" x-text="errorMsg"></div>
+
+  <!-- Success banner -->
+  <div class="success-banner" x-show="successMsg" x-text="successMsg"></div>
+
+  <!-- ============ AI Presets Tab ============ -->
+  <section x-show="tab === 'presets'" class="tab-content">
+    <div class="section-header">
+      <h2>AI 预设</h2>
+      <button class="btn-primary" x-on:click="showAddPreset = !showAddPreset">
+        + 添加预设
+      </button>
+    </div>
+
+    <!-- Add Preset Form -->
+    <div class="card" x-show="showAddPreset">
+      <h3 x-text="editingPresetKey ? '编辑预设：' + editingPresetKey : '添加新预设'"></h3>
+      <form x-on:submit.prevent="addPreset()">
+        <template x-if="!editingPresetKey">
+          <label>
+            预设名称
+            <input type="text" x-model="newPreset.key" placeholder="例如：openrouter" required>
+          </label>
+        </template>
+        <template x-if="editingPresetKey">
+          <label>
+            预设名称
+            <input type="text" x-bind:value="editingPresetKey" disabled>
+          </label>
+        </template>
+        <label>
+          显示名称
+          <input type="text" x-model="newPreset.name" placeholder="例如：OpenRouter API" required>
+        </label>
+        <label>
+          类型
+          <select x-model="newPreset.type" x-bind:disabled="!!editingPresetKey">
+            <option value="subscription">Subscription (Claude Task 工具)</option>
+            <option value="api">API (直接 API 调用)</option>
+            <option value="cli">CLI (命令行工具)</option>
+          </select>
+        </label>
+        <!-- API-specific fields -->
+        <template x-if="newPreset.type === 'api'">
+          <div>
+            <label>
+              API 格式
+              <select x-model="newPreset.protocol">
+                <option value="anthropic">Anthropic (Claude API 兼容)</option>
+                <option value="openai">OpenAI (ChatGPT/Codex 兼容)</option>
+              </select>
+            </label>
+            <label x-show="newPreset.protocol === 'openai'" x-transition>
+              推理强度 <span class="optional-label">(可选，适用于推理模型)</span>
+              <select x-model="newPreset.reasoning_effort_api">
+                <option value="">未设置 (默认)</option>
+                <option value="minimal">最小</option>
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+                <option value="xhigh">超高</option>
+              </select>
+            </label>
+            <label x-show="newPreset.protocol === 'openai'" x-transition>
+              最大输出 Token <span class="optional-label">(可选，默认 16384)</span>
+              <input type="number" x-model="newPreset.max_output_tokens" placeholder="16384" min="1" step="1">
+            </label>
+            <label>
+              Base URL
+              <input type="url" x-model="newPreset.base_url" placeholder="https://openrouter.ai/api" required>
+            </label>
+            <label>
+              API 密钥
+              <input type="password" x-model="newPreset.api_key"
+                x-bind:placeholder="newPreset.protocol === 'openai' ? '输入 OpenAI 兼容 API 密钥' : '输入 Anthropic 兼容 API 密钥'"
+                required>
+            </label>
+            <label>
+              模型列表 (逗号分隔)
+              <input type="text" x-model="newPreset.models_str" placeholder="claude-sonnet-4-5-20250514,claude-opus-4-20250514">
+            </label>
+            <label>
+              任务超时 (分钟，可选)
+              <input type="number" x-model="newPreset.timeout_minutes" placeholder="5" min="1" step="1">
+            </label>
+            <button type="button" class="btn-secondary btn-sm"
+              x-on:click="testFormPreset()"
+              x-bind:disabled="!canTestFormPreset()"
+              x-bind:aria-label="'测试连接'"
+            ><span x-text="formTesting ? '测试中...' : '测试连接'"></span></button>
+          </div>
+        </template>
+
+        <!-- CLI-specific fields -->
+        <template x-if="newPreset.type === 'cli'">
+          <div>
+            <label>
+              命令
+              <input type="text" x-model="newPreset.command" placeholder="例如：codex" required>
+            </label>
+            <label>
+              参数模板
+              <div class="placeholder-pills">
+                <span class="pill">{model}</span>
+                <span class="pill">{output_file}</span>
+                <span class="pill">{schema_path}</span>
+                <span class="pill">{prompt}</span>
+                <span class="pill" x-show="newPreset.supports_reasoning_effort">{reasoning_effort}</span>
+              </div>
+              <input type="text" x-model="newPreset.args_template" placeholder="e.g. exec --full-auto -m {model} -o {output_file} --output-schema {schema_path} {prompt}" required>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" x-model="newPreset.supports_resume">
+              支持断点续跑
+            </label>
+            <label x-show="newPreset.supports_resume" x-transition>
+              续跑参数模板
+              <input type="text" x-model="newPreset.resume_args_template" placeholder="例如：exec --full-auto -m {model} -o {output_file} --output-schema {schema_path} resume --last {prompt}">
+            </label>
+            <label>
+              单次执行参数模板 <span class="optional-label">(用于 /sns-workflow:once)</span>
+              <div class="placeholder-pills">
+                <span class="pill">{model}</span>
+                <span class="pill">{prompt}</span>
+                <span class="pill" x-show="newPreset.supports_reasoning_effort">{reasoning_effort}</span>
+              </div>
+              <input type="text" x-model="newPreset.one_shot_args_template" placeholder="例如：exec --full-auto -m {model} &quot;{prompt}&quot;">
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" x-model="newPreset.supports_reasoning_effort">
+              支持推理强度
+            </label>
+            <label x-show="newPreset.supports_reasoning_effort" x-transition>
+              默认推理强度
+              <select x-model="newPreset.reasoning_effort">
+                <option value="low">低</option>
+                <option value="medium" selected>中</option>
+                <option value="high">高</option>
+                <option value="xhigh">超高</option>
+              </select>
+            </label>
+            <label>
+              超时 (分钟，可选)
+              <input type="number" x-model="newPreset.timeout_minutes" placeholder="20" min="1" step="1">
+            </label>
+            <label>
+              模型列表 (逗号分隔)
+              <input type="text" x-model="newPreset.cli_models_str" placeholder="例如：o3,o4-mini" required>
+            </label>
+            <button type="button" class="btn-secondary btn-sm"
+              x-on:click="testFormPreset()"
+              x-bind:disabled="!canTestFormPreset()"
+              x-bind:aria-label="'测试命令'"
+            ><span x-text="formTesting ? '测试中...' : '测试命令'"></span></button>
+          </div>
+        </template>
+
+        <!-- In-form test results -->
+        <template x-if="formTestResults">
+          <div class="test-result-panel" role="status" aria-live="polite">
+            <button type="button" class="test-dismiss" x-on:click="formTestResults = null" aria-label="关闭测试结果">x</button>
+
+            <!-- Error responses (429, validation, network) -->
+            <template x-if="formTestResults.type === 'error'">
+              <div class="test-summary test-error">
+                <span x-text="formTestResults.message"></span>
+              </div>
+            </template>
+
+            <!-- API results -->
+            <template x-if="formTestResults.type === 'api'">
+              <div>
+                <div class="test-summary" x-bind:class="{
+                  'test-success': formTestResults.results.every(r => r.success),
+                  'test-error': formTestResults.results.every(r => !r.success),
+                  'test-pending': formTestResults.results.some(r => r.success) && formTestResults.results.some(r => !r.success)
+                }">
+                  <span x-text="formTestResults.results.filter(r => r.success).length + ' / ' + formTestResults.results.length + ' 模型通过'"></span>
+                </div>
+                <template x-for="result in formTestResults.results" x-bind:key="result.model">
+                  <div class="test-result-row">
+                    <span class="test-model-name" x-text="result.model"></span>
+                    <span class="test-badge" x-bind:class="result.success ? 'test-success' : 'test-error'" x-text="result.success ? '通过' : '失败'"></span>
+                    <span class="test-latency" x-text="result.latency_ms + 'ms'"></span>
+                    <span class="test-attempts" x-text="'尝试 ' + result.attempts + '/3'"></span>
+                    <span class="test-error-category" x-show="result.error_category" x-text="result.error_category"></span>
+                  </div>
+                </template>
+                <template x-if="formTestResults.results.some(r => r.hint)">
+                  <div class="test-hint">
+                    <span x-text="formTestResults.results.find(r => r.hint)?.hint"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- CLI results -->
+            <template x-if="formTestResults.type === 'cli'">
+              <div>
+                <template x-for="result in formTestResults.results" x-bind:key="result.command">
+                  <div class="test-result-row">
+                    <span class="test-model-name" x-text="result.command"></span>
+                    <span class="test-badge" x-bind:class="result.found ? 'test-success' : 'test-error'" x-text="result.found ? '已找到' : '未找到'"></span>
+                    <span class="test-latency" x-show="result.path" x-text="result.path"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Subscription info -->
+            <template x-if="formTestResults.type === 'subscription'">
+              <div class="test-result-row test-info">
+                <span x-text="formTestResults.message"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" x-text="editingPresetKey ? '更新预设' : '添加预设'"></button>
+          <button type="button" class="btn-secondary" x-on:click="showAddPreset = false; resetNewPreset()">取消</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Presets list -->
+    <div x-show="loading.presets" class="loading">加载预设中...</div>
+
+    <template x-if="!loading.presets">
+      <div>
+        <template x-if="Object.keys(presets).length === 0">
+          <p class="empty-state">暂无预设，请点击上方"添加预设"按钮。</p>
+        </template>
+
+        <template x-for="[name, preset] in Object.entries(presets)" x-bind:key="name">
+          <div class="card preset-card">
+            <div class="preset-header">
+              <div>
+                <span class="preset-name" x-text="name"></span>
+                <span class="badge" x-bind:class="'badge-' + preset.type" x-text="preset.type"></span>
+              </div>
+              <div>
+                <button
+                  class="btn-secondary btn-sm"
+                  x-show="editingPresetKey !== name"
+                  x-on:click="testPreset(name)"
+                  x-bind:disabled="testing[name]"
+                  x-bind:aria-label="'测试 ' + name + ' 的连接'"
+                ><span x-text="testing[name] ? '测试中...' : '测试'"></span></button>
+                <button class="btn-secondary btn-sm" x-on:click="editPreset(name)">编辑</button>
+                <button class="btn-danger btn-sm" x-on:click="deletePreset(name)">删除</button>
+              </div>
+            </div>
+
+            <div class="preset-details">
+              <div x-text="preset.name" class="preset-display-name"></div>
+
+              <!-- API preset details -->
+              <template x-if="preset.type === 'api'">
+                <div class="api-details">
+                  <div class="detail-row">
+                    <span class="label">API 格式:</span>
+                    <span x-text="preset.protocol === 'openai' ? 'OpenAI' : 'Anthropic'"></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Base URL:</span>
+                    <span x-text="preset.base_url"></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">API 密钥:</span>
+                    <span x-text="revealedKeys[name] || preset.api_key"></span>
+                    <button
+                      class="btn-sm btn-secondary"
+                      x-show="!revealedKeys[name]"
+                      x-on:click="revealKey(name)"
+                    >显示</button>
+                    <button
+                      class="btn-sm btn-secondary"
+                      x-show="revealedKeys[name]"
+                      x-on:click="hideKey(name)"
+                    >隐藏</button>
+                  </div>
+                  <div class="detail-row" x-show="preset.models && preset.models.length > 0">
+                    <span class="label">模型:</span>
+                    <span x-text="Array.isArray(preset.models) ? preset.models.join(', ') : ''"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.protocol === 'openai' && preset.max_output_tokens">
+                    <span class="label">最大输出 Token:</span>
+                    <span x-text="preset.max_output_tokens"></span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- CLI preset details -->
+              <template x-if="preset.type === 'cli'">
+                <div class="cli-details">
+                  <div class="detail-row">
+                    <span class="label">命令:</span>
+                    <span x-text="preset.command"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.args_template">
+                    <span class="label">参数模板:</span>
+                    <span x-text="preset.args_template" class="code-text"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.supports_resume && preset.resume_args_template">
+                    <span class="label">续跑模板:</span>
+                    <span x-text="preset.resume_args_template" class="code-text"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.one_shot_args_template">
+                    <span class="label">单次执行模板:</span>
+                    <span x-text="preset.one_shot_args_template" class="code-text"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.reasoning_effort">
+                    <span class="label">推理强度:</span>
+                    <span x-text="preset.reasoning_effort"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.timeout_ms">
+                    <span class="label">超时:</span>
+                    <span x-text="preset.timeout_ms ? Math.round(preset.timeout_ms / 60000) + ' 分钟' : ''"></span>
+                  </div>
+                  <div class="detail-row" x-show="preset.models && preset.models.length > 0">
+                    <span class="label">模型:</span>
+                    <span x-text="Array.isArray(preset.models) ? preset.models.join(', ') : ''"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Test result panel -->
+            <div class="test-result-panel" x-show="testResults[name]" role="status" aria-live="polite">
+              <button class="test-dismiss" x-on:click="dismissTest(name)" aria-label="关闭测试结果">x</button>
+
+              <!-- API preset results -->
+              <template x-if="testResults[name] && testResults[name].type === 'api'">
+                <div>
+                  <div class="test-summary"
+                    x-bind:class="{
+                      'test-success': testResults[name].results.filter(r => r.success).length === testResults[name].results.length,
+                      'test-error': testResults[name].results.filter(r => r.success).length === 0,
+                      'test-pending': testResults[name].results.filter(r => r.success).length > 0 && testResults[name].results.filter(r => r.success).length < testResults[name].results.length
+                    }"
+                  >
+                    <span x-text="testResults[name].results.filter(r => r.success).length + ' / ' + testResults[name].results.length + ' 模型通过'"></span>
+                  </div>
+                  <template x-for="result in testResults[name].results" x-bind:key="result.model">
+                    <div class="test-result-row">
+                      <span class="test-model-name" x-text="result.model"></span>
+                      <span class="test-badge" x-bind:class="result.success ? 'test-success' : 'test-error'" x-text="result.success ? '通过' : '失败'"></span>
+                      <span class="test-latency" x-text="result.latency_ms + 'ms'"></span>
+                      <span class="test-attempts" x-text="'尝试 ' + result.attempts + '/3'"></span>
+                      <span class="test-error-category" x-show="result.error_category" x-text="result.error_category"></span>
+                    </div>
+                  </template>
+                  <template x-if="testResults[name].results.some(r => r.hint)">
+                    <div class="test-hint">
+                      <span x-text="testResults[name].results.find(r => r.hint)?.hint"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <!-- CLI preset results -->
+              <template x-if="testResults[name] && testResults[name].type === 'cli'">
+                <div>
+                  <template x-for="result in testResults[name].results" x-bind:key="result.command">
+                    <div class="test-result-row">
+                      <span class="test-model-name" x-text="result.command"></span>
+                      <span class="test-badge" x-bind:class="result.found ? 'test-success' : 'test-error'" x-text="result.found ? '已找到' : '未找到'"></span>
+                      <span class="test-latency" x-show="result.path" x-text="result.path"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Subscription preset results -->
+              <template x-if="testResults[name] && testResults[name].type === 'subscription'">
+                <div class="test-result-row test-info">
+                  <span x-text="testResults[name].message"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+  </section>
+
+
+  <!-- ============ Chatroom Tab ============ -->
+  <section x-show="tab === 'chatroom'" class="tab-content">
+    <div class="section-header">
+      <h2>PK Stage Chatroom</h2>
+    </div>
+
+    <p class="hint">
+      Configure participants for the multi-AI competitive debate (<code>/sns-workflow:chatroom</code>).
+      Each participant uses a preset and model from your AI Presets.
+    </p>
+
+    <!-- Loading state -->
+    <template x-if="loading.chatroom">
+      <p class="loading">Loading chatroom config...</p>
+    </template>
+
+    <!-- Chatroom config form -->
+    <template x-if="!loading.chatroom && chatroomConfig">
+      <div>
+        <div class="card">
+          <h3>Participants</h3>
+
+          <!-- Empty state -->
+          <template x-if="chatroomConfig.participants.length === 0">
+            <p class="empty-state">No participants configured. Add at least one to use the chatroom.</p>
+          </template>
+
+          <!-- Participant list -->
+          <template x-for="(participant, index) in chatroomConfig.participants" x-bind:key="index">
+            <div class="stage-card">
+              <div class="stage-info">
+                <span class="stage-type-badge" x-text="'P' + index" class="stage-type-badge stage-type-implementation"></span>
+              </div>
+              <div class="stage-controls">
+                <select
+                  class="stage-select"
+                  x-model="participant.system_prompt"
+                  x-init="$nextTick(() => $el.value = participant.system_prompt || '')"
+                >
+                  <option value="">-- No Persona --</option>
+                  <template x-for="p in systemPrompts" x-bind:key="p.name">
+                    <option x-bind:value="p.name" x-text="p.name"></option>
+                  </template>
+                </select>
+                <select
+                  class="stage-select"
+                  x-model="participant.preset"
+                  x-on:change="onParticipantProviderChange(index)"
+                  x-init="$nextTick(() => $el.value = participant.preset || '')"
+                >
+                  <option value="" disabled>Select preset...</option>
+                  <template x-for="[presetName, preset] in Object.entries(presets)" x-bind:key="presetName">
+                    <option x-bind:value="presetName" x-text="presetName + ' (' + preset.type + ')'"></option>
+                  </template>
+                </select>
+                <select
+                  class="stage-select model-select"
+                  x-model="participant.model"
+                  x-init="$nextTick(() => $el.value = participant.model || '')"
+                >
+                  <option value="" disabled>Select model...</option>
+                  <template x-for="m in (stageModelOptions[participant.preset] || [])" x-bind:key="m">
+                    <option x-bind:value="m" x-text="m"></option>
+                  </template>
+                </select>
+              </div>
+              <button class="btn-danger btn-sm stage-delete" x-on:click="removeParticipant(index)">Remove</button>
+            </div>
+          </template>
+
+          <!-- Add participant -->
+          <div style="margin-top: 12px;">
+            <button
+              class="btn-secondary btn-sm"
+              x-on:click="addParticipant()"
+              x-bind:disabled="chatroomConfig.participants.length >= 10"
+            >+ Add Participant</button>
+            <span x-show="chatroomConfig.participants.length >= 10" class="text-muted" style="font-size: 0.8rem; margin-left: 8px;">
+              Maximum 10 participants
+            </span>
+          </div>
+        </div>
+
+        <!-- Settings card -->
+        <div class="card">
+          <h3>Settings</h3>
+          <form x-on:submit.prevent>
+            <label>
+              Max Rounds (1–10)
+              <input
+                type="number"
+                min="1"
+                max="10"
+                x-model.number="chatroomConfig.max_rounds"
+              >
+            </label>
+          </form>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions" style="margin-top: 16px;">
+          <button
+            class="btn-primary"
+            x-on:click="saveChatroomConfig()"
+            x-bind:disabled="saving.chatroom"
+            x-text="saving.chatroom ? 'Saving...' : 'Save Chatroom Config'"
+          ></button>
+          <button
+            class="btn-secondary"
+            x-on:click="resetChatroomToDefault()"
+          >Reset to Default</button>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- ============ System Prompts Tab (v3) ============ -->
+  <section x-show="tab === 'system-prompts'" class="tab-content">
+    <div class="section-header">
+      <div>
+        <h2>System Prompts</h2>
+        <p class="section-description">Built-in prompts are read-only. Create custom prompts via <code>/sns-workflow:create-prompt</code> or import from gallery.</p>
+      </div>
+      <button class="btn-secondary" x-on:click="openImportDialog()">Import from Gallery</button>
+    </div>
+
+    <template x-if="loadingSystemPrompts">
+      <p>Loading system prompts...</p>
+    </template>
+
+    <template x-if="!loadingSystemPrompts">
+      <div>
+        <template x-for="prompt in systemPrompts" x-bind:key="prompt.name">
+          <div class="card" style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong x-text="prompt.name"></strong>
+                <span class="badge" x-text="prompt.source" x-bind:class="prompt.source === 'built-in' ? 'badge badge-built-in' : 'badge badge-custom'"></span>
+              </div>
+              <button x-show="prompt.source === 'custom'" x-on:click="deleteSystemPrompt(prompt.name)" class="btn-danger" style="font-size: 0.8rem;">Delete</button>
+            </div>
+            <p class="text-muted" style="font-size: 0.85rem; margin: 4px 0;" x-text="prompt.description"></p>
+            <p class="text-muted" style="font-size: 0.8rem;" x-text="'Tools: ' + prompt.tools.join(', ')"></p>
+          </div>
+        </template>
+      </div>
+    </template>
+  </section>
+
+  
+  <!-- ============ Stages Tab (v3 inline executors) ============ -->
+  <section x-show="tab === 'stages'" class="tab-content">
+    <h2>Stages</h2>
+    <p class="section-description">Each stage has inline executors. Configure system prompt, provider, model, and parallel mode per row.</p>
+
+    <template x-if="loadingStages">
+      <p>Loading stages...</p>
+    </template>
+
+    <template x-if="!loadingStages">
+      <div>
+        <template x-for="[stageType, stageConfig] in Object.entries(v3Stages)" x-bind:key="stageType">
+          <div class="card" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 style="margin: 0;" x-text="stageType"></h3>
+              <button x-on:click="saveStage(stageType)" class="btn-primary" style="font-size: 0.8rem;">Save</button>
+            </div>
+
+            <!-- Inline executor list (SortableJS enabled) -->
+            <div style="margin-top: 8px;" x-init="$nextTick(() => initSortableExecutors($el, stageType))">
+              <template x-for="(exec, idx) in stageConfig.executors" x-bind:key="exec._id">
+                <div class="executor-row">
+                  <span class="drag-handle" x-bind:class="{ 'is-synthesizer': stageConfig.executors.length > 1 && idx === stageConfig.executors.length - 1 }">&#9776;</span>
+                  <select x-model="exec.system_prompt" x-init="$nextTick(() => $el.value = exec.system_prompt || '')" style="flex: 1; min-width: 120px;">
+                    <option value="">-- System Prompt --</option>
+                    <template x-for="p in systemPrompts" x-bind:key="p.name">
+                      <option x-bind:value="p.name" x-text="p.name"></option>
+                    </template>
+                  </select>
+                  <select x-model="exec.preset" x-on:change="onStagePresetChange(exec)" x-init="$nextTick(() => $el.value = exec.preset || '')" style="flex: 1; min-width: 120px;">
+                    <option value="">-- Preset --</option>
+                    <template x-for="[pName] in Object.entries(presets)" x-bind:key="pName">
+                      <option x-bind:value="pName" x-text="pName"></option>
+                    </template>
+                  </select>
+                  <select x-model="exec.model" x-init="$nextTick(() => $el.value = exec.model || '')" style="flex: 0 1 130px;">
+                    <option value="">-- Model --</option>
+                    <template x-for="m in (stageModelOptions[exec.preset] || [])" x-bind:key="m">
+                      <option x-bind:value="m" x-text="m"></option>
+                    </template>
+                  </select>
+                  <label style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--text-secondary); margin: 0; white-space: nowrap;">
+                    <input type="checkbox" x-model="exec.parallel"
+                      x-bind:disabled="stageConfig.executors.length > 1 && idx === stageConfig.executors.length - 1">
+                    Parallel
+                  </label>
+                  <span x-show="stageConfig.executors.length > 1 && idx === stageConfig.executors.length - 1"
+                    class="badge badge-synthesizer" style="font-size: 0.75rem;">Synthesizer</span>
+                  <button x-on:click="removeExecutorFromStage(stageType, idx)" class="btn-danger" style="font-size: 0.75rem;">Remove</button>
+                </div>
+              </template>
+            </div>
+
+            <button x-on:click="addExecutorToStage(stageType)" style="margin-top: 8px; font-size: 0.85rem;" class="btn-secondary"
+              x-bind:disabled="stageDefinitions[stageType]?.max_executors !== undefined && stageConfig.executors.length >= stageDefinitions[stageType].max_executors">+ Add Executor</button>
+          </div>
+        </template>
+      </div>
+    </template>
+  </section>
+
+  <!-- ============ Workflows Tab (v3) ============ -->
+  <section x-show="tab === 'v3workflows'" class="tab-content">
+    <h2>Workflows</h2>
+    <p class="section-description">Configure the stage order for feature and bug-fix workflows. Users can add, remove, and reorder stages.</p>
+
+    <template x-if="loadingWorkflows">
+      <p>Loading workflows...</p>
+    </template>
+
+    <template x-if="!loadingWorkflows">
+      <div>
+        <template x-for="pKey in ['feature_workflow', 'bugfix_workflow']" x-bind:key="pKey">
+          <div class="card" style="margin-bottom: 16px;">
+            <h3 x-text="pKey === 'feature_workflow' ? 'Feature Workflow' : 'Bug-Fix Workflow'"></h3>
+
+            <template x-for="(stage, idx) in v3Workflows[pKey]" x-bind:key="idx">
+              <div class="executor-row">
+                <span style="font-weight: 500; min-width: 24px;" x-text="(idx + 1) + '.'"></span>
+                <select x-model="v3Workflows[pKey][idx]" style="flex: 1;">
+                  <option value="requirements">requirements</option>
+                  <option value="planning">planning</option>
+                  <option value="plan-review">plan-review</option>
+                  <option value="implementation">implementation</option>
+                  <option value="code-review">code-review</option>
+                  <option value="rca">rca</option>
+                </select>
+                <button x-on:click="moveStageInWorkflow(pKey, idx, -1)" x-bind:disabled="idx === 0" title="Move up" style="padding: 2px 8px;">&#9650;</button>
+                <button x-on:click="moveStageInWorkflow(pKey, idx, 1)" x-bind:disabled="idx === v3Workflows[pKey].length - 1" title="Move down" style="padding: 2px 8px;">&#9660;</button>
+                <button x-on:click="removeStageFromWorkflow(pKey, idx)" class="btn-danger" style="font-size: 0.75rem;">Remove</button>
+              </div>
+            </template>
+
+            <button x-on:click="addStageToWorkflow(pKey)" style="margin-top: 8px; font-size: 0.85rem;" class="btn-secondary">+ Add Stage</button>
+          </div>
+        </template>
+
+        <button x-on:click="saveWorkflows()" class="btn-primary" style="margin-top: 12px;">Save Workflows</button>
+      </div>
+    </template>
+  </section>
+
+  <!-- ============ Settings Tab (v3) ============ -->
+  <section x-show="tab === 'settings'" class="tab-content">
+    <h2>Settings</h2>
+    <p class="section-description">Global workflow settings.</p>
+
+    <template x-if="loadingSettings">
+      <p>Loading settings...</p>
+    </template>
+
+    <template x-if="!loadingSettings">
+      <div class="card">
+        <div class="form-grid">
+          <label>
+            <span class="form-label">Max Iterations</span>
+            <input type="number" x-model.number="v3Settings.max_iterations" min="1" max="50">
+            <span class="form-hint">Maximum fix/re-review iterations per workflow run</span>
+          </label>
+          <label>
+            <span class="form-label">Max TDD Iterations</span>
+            <input type="number" x-model.number="v3Settings.max_tdd_iterations" min="1" max="20">
+            <span class="form-hint">Maximum test-fail retries per implementation step</span>
+          </label>
+        </div>
+        <div class="form-actions" style="margin-top: 16px;">
+          <button x-on:click="saveSettings()" class="btn-primary">Save Settings</button>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- ============ Import from Gallery Modal ============ -->
+  <div class="modal-overlay" x-show="showImportDialog" x-transition
+    role="dialog" aria-modal="true" aria-labelledby="import-dialog-title"
+    x-on:keydown.escape="closeImportDialog()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="import-dialog-title">Import from Agency Agents Gallery</h3>
+        <button class="modal-close" x-on:click="closeImportDialog()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Step 1: Category selection -->
+        <template x-if="!importSelectedCategory && !importProgress">
+          <div>
+            <p class="text-muted">Select a category to browse available agents:</p>
+            <template x-if="importLoading">
+              <p class="loading">Loading categories...</p>
+            </template>
+            <div class="import-category-grid">
+              <template x-for="cat in importCategories" x-bind:key="cat.name">
+                <button class="import-category-btn" x-on:click="selectImportCategory(cat.name)" x-text="cat.name"></button>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <!-- Step 2: Agent selection -->
+        <template x-if="importSelectedCategory && !importProgress">
+          <div>
+            <button class="btn-secondary btn-sm" x-on:click="importSelectedCategory = ''; importAgents = []">&larr; Back to categories</button>
+            <h4 x-text="importSelectedCategory" style="margin: 12px 0 8px; text-transform: capitalize;"></h4>
+            <template x-if="importLoading">
+              <p class="loading">Loading agents...</p>
+            </template>
+            <template x-if="!importLoading">
+              <div>
+                <template x-for="agent in importAgents" x-bind:key="agent.name">
+                  <label class="import-agent-row">
+                    <input type="checkbox" x-model="importSelectedAgents[agent.name]">
+                    <strong x-text="agent.name" style="font-size: 0.85rem; flex: 1;"></strong>
+                    <a x-bind:href="agent.html_url" target="_blank" rel="noopener" class="btn-secondary btn-sm"
+                      style="font-size: 0.75rem; text-decoration: none;" x-on:click.stop>View</a>
+                  </label>
+                </template>
+                <div class="form-actions" style="margin-top: 12px;">
+                  <button class="btn-primary" x-on:click="importSelectedPrompts()"
+                    x-bind:disabled="Object.values(importSelectedAgents).filter(Boolean).length === 0">
+                    Import Selected
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Step 3: Progress -->
+        <template x-if="importProgress">
+          <div>
+            <p class="loading" x-text="importProgress"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

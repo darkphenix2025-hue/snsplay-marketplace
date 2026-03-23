@@ -1,0 +1,56 @@
+{
+  "name": "行情展示模块",
+  "branchName": "feature/charts",
+  "description": "前端行情展示组件，包括K线图、分时图、技术指标图",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "K线图组件",
+      "description": "专业K线图展示组件",
+      "acceptanceCriteria": [
+        "支持日K、周K、月K切换",
+        "支持缩放和拖拽",
+        "显示成交量柱状图",
+        "支持十字光标和Tooltip",
+        "pnpm typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    },
+    {
+      "id": "US-002",
+      "title": "分时图组件",
+      "description": "当日分时图展示组件",
+      "acceptanceCriteria": [
+        "显示当日分时价格曲线",
+        "显示均价线",
+        "显示成交量柱状图",
+        "pnpm typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-003",
+      "title": "技术指标组件",
+      "description": "技术指标叠加显示",
+      "acceptanceCriteria": [
+        "支持MA、MACD、KDJ、RSI、BOLL",
+        "指标参数可配置",
+        "支持多指标叠加",
+        "pnpm typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": ["US-001"],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    }
+  ]
+}

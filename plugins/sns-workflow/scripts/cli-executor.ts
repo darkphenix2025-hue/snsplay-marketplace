@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Generic CLI Executor — template-based command execution for pipeline reviews.
+ * Generic CLI Executor — template-based command execution for workflow reviews.
  *
- * Reads a CLI preset from ~/.vcp/ai-presets.json, substitutes placeholders in the
+ * Reads a CLI preset from ~/.snsplay/ai-presets.json, substitutes placeholders in the
  * preset's args_template, and executes the resulting command. Supports any CLI tool
  * that can produce structured JSON review output.
  *
@@ -30,10 +30,10 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { readJson as _readJsonBase, fileExists, writeJson } from './pipeline-utils.ts';
+import { readJson as _readJsonBase, fileExists, writeJson } from './workflow-utils.ts';
 import { readPresets, validateCliTemplate, REQUIRED_ARGS_TEMPLATE_PLACEHOLDERS } from './preset-utils.ts';
 import type { CliPreset } from '../types/presets.ts';
-import { vcpLog, isDebugEnabled } from './vcp-logger.ts';
+import { snsplayLog, isDebugEnabled } from './snsplay-logger.ts';
 
 /** Typed wrapper — cli-executor expects Record<string, unknown> | null */
 function readJson(filePath: string): Record<string, unknown> | null {
@@ -43,11 +43,11 @@ function readJson(filePath: string): Record<string, unknown> | null {
 // ================== CONFIGURATION ==================
 
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
-const TASK_DIR = '.vcp/task';
+const TASK_DIR = '.snsplay/task';
 const TRACE_FILE = path.join(TASK_DIR, 'cli_trace.log');
 
 /** Compute the default output file path based on review type.
- *  Fallback for manual/standalone runs only — pipeline always passes --output-file. */
+ *  Fallback for manual/standalone runs only — workflow always passes --output-file. */
 function getDefaultOutputFile(reviewType: string): string {
   return reviewType === 'code'
     ? path.join(TASK_DIR, 'code-review-cli.json')
@@ -55,11 +55,11 @@ function getDefaultOutputFile(reviewType: string): string {
 }
 
 /** Get the resolved output file path: --output-file override if provided, else default.
- *  Logs a warning when falling back to defaults, since pipeline always passes --output-file
+ *  Logs a warning when falling back to defaults, since workflow always passes --output-file
  *  and a missing flag usually means a caller bug. */
 function getOutputFile(reviewType: string, outputFileOverride: string | null): string {
   if (!outputFileOverride) {
-    console.error(`[cli-executor] WARNING: --output-file not provided, falling back to default '${getDefaultOutputFile(reviewType)}'. Pipeline callers should always pass --output-file.`);
+    console.error(`[cli-executor] WARNING: --output-file not provided, falling back to default '${getDefaultOutputFile(reviewType)}'. Workflow callers should always pass --output-file.`);
   }
   return outputFileOverride ?? getDefaultOutputFile(reviewType);
 }
@@ -79,6 +79,8 @@ interface ParsedArgs {
   changesSummary: string | null;
   outputFile: string | null;
   model: string | null;
+  /** Stage type for auto-resolving stage definition (e.g., 'plan-review', 'code-review'). */
+  stageType: string | null;
 }
 
 /** Regex for valid model names — alphanumeric, dots, hyphens, underscores only. */
@@ -86,7 +88,7 @@ const MODEL_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2);
-  const result: ParsedArgs = { type: null, pluginRoot: null, preset: null, forceResume: false, changesSummary: null, outputFile: null, model: null };
+  const result: ParsedArgs = { type: null, pluginRoot: null, preset: null, forceResume: false, changesSummary: null, outputFile: null, model: null, stageType: null };
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--type' && args[i + 1]) {
@@ -108,6 +110,9 @@ function parseArgs(): ParsedArgs {
       i++;
     } else if (args[i] === '--model' && args[i + 1]) {
       result.model = args[i + 1];
+      i++;
+    } else if (args[i] === '--stage-type' && args[i + 1]) {
+      result.stageType = args[i + 1];
       i++;
     }
   }
@@ -193,7 +198,7 @@ function loadCliPreset(presetName: string): CliPreset {
   const config = readPresets();
   const preset = config.presets[presetName];
   if (!preset) {
-    throw new Error(`Preset '${presetName}' not found in ~/.vcp/ai-presets.json`);
+    throw new Error(`Preset '${presetName}' not found in ~/.snsplay/ai-presets.json`);
   }
   if (preset.type !== 'cli') {
     throw new Error(`Preset '${presetName}' is type '${preset.type}', expected 'cli'`);
@@ -229,17 +234,17 @@ function validateInputs(args: ParsedArgs, preset: CliPreset): string[] {
 
   // Check task directory
   if (!fileExists(TASK_DIR)) {
-    errors.push('.vcp/task directory not found');
+    errors.push('.snsplay/task directory not found');
   }
 
   // Check review-specific input files (multi-file first, legacy fallback)
   if (args.type === 'plan') {
     if (!fileExists(path.join(TASK_DIR, 'plan', 'manifest.json')) && !fileExists(path.join(TASK_DIR, 'plan-refined.json'))) {
-      errors.push('Missing .vcp/task/plan/manifest.json (or legacy plan-refined.json) for plan review');
+      errors.push('Missing .snsplay/task/plan/manifest.json (or legacy plan-refined.json) for plan review');
     }
   } else if (args.type === 'code') {
     if (!fileExists(path.join(TASK_DIR, 'impl-result.json'))) {
-      errors.push('Missing .vcp/task/impl-result.json for code review');
+      errors.push('Missing .snsplay/task/impl-result.json for code review');
     }
   }
 
@@ -248,12 +253,14 @@ function validateInputs(args: ParsedArgs, preset: CliPreset): string[] {
     const schemaFile = args.type === 'plan'
       ? 'plan-review.schema.json'
       : 'review-result.schema.json';
-    const schemaPath = path.join(args.pluginRoot, 'docs', 'schemas', schemaFile);
+    const schemaPath = path.join(args.pluginRoot, 'rules', 'schemas', schemaFile);
     if (!fileExists(schemaPath)) {
       errors.push(`Missing schema file: ${schemaPath}`);
     }
 
-    const guidelinesPath = path.join(args.pluginRoot, 'docs', 'review-guidelines.md');
+    const guidelinesPath = args.type === 'plan'
+      ? path.join(args.pluginRoot, 'rules', 'plan-review-guidelines.md')
+      : path.join(args.pluginRoot, 'rules', 'code-review-guidelines.md');
     if (!fileExists(guidelinesPath)) {
       errors.push(`Missing review guidelines file: ${guidelinesPath}`);
     }
@@ -288,33 +295,48 @@ interface CmdConfig {
   args: string[];
 }
 
-/** Build the review prompt based on review type and context. */
+/** Build the review prompt based on review type and context.
+ *  When --stage-type is provided, prepends the stage definition content. */
 function buildReviewPrompt(args: ParsedArgs, isResume: boolean): string {
-  // Multi-file artifact paths with legacy fallback
-  const planInput = fileExists('.vcp/task/plan/manifest.json')
-    ? '.vcp/task/plan/manifest.json (read manifest, then step files from sections.steps[])'
-    : '.vcp/task/plan-refined.json';
-  const inputFile = args.type === 'plan' ? planInput : '.vcp/task/impl-result.json';
+  // Auto-resolve stage definition if --stage-type provided (fail-closed)
+  let stagePrefix = '';
+  if (args.stageType && args.pluginRoot) {
+    const { loadStageDefinition } = require('./system-prompts.ts');
+    const stagesDir = path.join(args.pluginRoot, 'stages');
+    const stageDef = loadStageDefinition(args.stageType, stagesDir);
+    if (!stageDef) {
+      throw new Error(`Stage definition not found for type '${args.stageType}' in ${stagesDir}`);
+    }
+    stagePrefix = stageDef.content + '\n\n---\n\n';
+  }
 
-  const guidelinesPath = path.join(args.pluginRoot!, 'docs', 'review-guidelines.md');
+  // Multi-file artifact paths with legacy fallback
+  const planInput = fileExists('.snsplay/task/plan/manifest.json')
+    ? '.snsplay/task/plan/manifest.json (read manifest, then step files from sections.steps[])'
+    : '.snsplay/task/plan-refined.json';
+  const inputFile = args.type === 'plan' ? planInput : '.snsplay/task/impl-result.json';
+
+  const guidelinesPath = args.type === 'plan'
+    ? path.join(args.pluginRoot!, 'rules', 'plan-review-guidelines.md')
+    : path.join(args.pluginRoot!, 'rules', 'code-review-guidelines.md');
 
   // AC source: multi-file first, legacy fallback
-  const acFile = fileExists('.vcp/task/user-story/acceptance-criteria.json')
-    ? '.vcp/task/user-story/acceptance-criteria.json'
-    : '.vcp/task/user-story.json';
+  const acFile = fileExists('.snsplay/task/user-story/acceptance-criteria.json')
+    ? '.snsplay/task/user-story/acceptance-criteria.json'
+    : '.snsplay/task/user-story.json';
   const userStoryRef = fileExists(acFile) ? ` Requirements and acceptance criteria are in ${acFile}.` : '';
 
   const readFilesFirst = `IMPORTANT: You MUST use your shell tools to read ALL referenced files BEFORE producing your review output. Do NOT output the review JSON until you have read and analyzed every file. Read the files first, then produce your final structured review. Also read ${guidelinesPath} for the full review rubric and severity definitions.`;
 
   if (isResume && args.changesSummary) {
-    return `${readFilesFirst}\n\nRe-review after fixes. Changes made:\n${args.changesSummary}\n\nVerify fixes address previous concerns. Check against ${guidelinesPath}.${userStoryRef}`;
+    return `${stagePrefix}${readFilesFirst}\n\nRe-review after fixes. Changes made:\n${args.changesSummary}\n\nVerify fixes address previous concerns. Check against ${guidelinesPath}.${userStoryRef}`;
   } else if (isResume) {
-    return `${readFilesFirst}\n\nRe-review ${inputFile}. Previous concerns should be addressed. Verify against ${guidelinesPath}.${userStoryRef}`;
+    return `${stagePrefix}${readFilesFirst}\n\nRe-review ${inputFile}. Previous concerns should be addressed. Verify against ${guidelinesPath}.${userStoryRef}`;
   } else {
     const criteriaInstruction = args.type === 'plan'
       ? 'Map each acceptance criterion to plan steps.'
       : 'Verify implementation evidence for each acceptance criterion.';
-    return `${readFilesFirst}\n\nReview ${inputFile} against ${guidelinesPath}.${userStoryRef} Final gate review for ${args.type === 'plan' ? 'plan approval' : 'code quality'}. ${criteriaInstruction} Only set needs_clarification if you have a genuine question for the user after reading the files — NOT because you have not read them yet.`;
+    return `${stagePrefix}${readFilesFirst}\n\nReview ${inputFile} against ${guidelinesPath}.${userStoryRef} Final gate review for ${args.type === 'plan' ? 'plan approval' : 'code quality'}. ${criteriaInstruction} Only set needs_clarification if you have a genuine question for the user after reading the files — NOT because you have not read them yet.`;
   }
 }
 
@@ -364,7 +386,7 @@ function buildCommand(args: ParsedArgs, preset: CliPreset, isResume: boolean): C
   const schemaFile = args.type === 'plan'
     ? 'plan-review.schema.json'
     : 'review-result.schema.json';
-  const schemaPath = path.join(args.pluginRoot!, 'docs', 'schemas', schemaFile);
+  const schemaPath = path.join(args.pluginRoot!, 'rules', 'schemas', schemaFile);
   const outputFile = getOutputFile(args.type!, args.outputFile);
   const prompt = buildReviewPrompt(args, isResume);
 
@@ -388,7 +410,7 @@ function buildCommand(args: ParsedArgs, preset: CliPreset, isResume: boolean): C
     required: REQUIRED_ARGS_TEMPLATE_PLACEHOLDERS,
   });
   if (templateErr) {
-    vcpLog(logProjectRoot, { source: 'cli-executor', event: 'template_invalid', decision: 'error', details: templateErr }, debugEnabled);
+    snsplayLog(logProjectRoot, { source: 'cli-executor', event: 'template_invalid', decision: 'error', details: templateErr }, debugEnabled);
     throw new Error(`CLI preset has invalid args_template: ${templateErr}`);
   }
 
@@ -396,7 +418,7 @@ function buildCommand(args: ParsedArgs, preset: CliPreset, isResume: boolean): C
 
   if (!tokenized) {
     // Fire-and-forget — best-effort diagnostic logging
-    vcpLog(logProjectRoot, { source: 'cli-executor', event: 'tokenize_failed', decision: 'error', details: template }, debugEnabled);
+    snsplayLog(logProjectRoot, { source: 'cli-executor', event: 'tokenize_failed', decision: 'error', details: template }, debugEnabled);
     throw new Error('Failed to tokenize args_template — unbalanced quotes');
   }
 
@@ -529,6 +551,20 @@ function validateOutput(reviewType: string, outputFileOverride: string | null = 
     return { valid: false, error: 'Output missing "summary" field or summary is not a string' };
   }
 
+  // Validate routing fields required for re-review dispatch
+  if (!output.id || typeof output.id !== 'string') {
+    return { valid: false, error: 'Output missing "id" field' };
+  }
+  if (!output.reviewer || typeof output.reviewer !== 'string') {
+    return { valid: false, error: 'Output missing "reviewer" field' };
+  }
+  if (!output.model || typeof output.model !== 'string') {
+    return { valid: false, error: 'Output missing "model" field' };
+  }
+  if (typeof output.revision_number !== 'number' || output.revision_number < 1) {
+    return { valid: false, error: 'Output missing or invalid "revision_number" field (must be integer >= 1)' };
+  }
+
   // Detect placeholder reviews where CLI tool output structured JSON without reading files
   if (output.needs_clarification === true) {
     const questions = output.clarification_questions as string[] | undefined;
@@ -592,7 +628,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await vcpLog(logProjectRoot, {
+  await snsplayLog(logProjectRoot, {
     source: 'cli-executor', event: 'preset_loaded', decision: 'info',
     details: `preset=${args.preset} command=${preset.command} reasoning_effort=${preset.reasoning_effort || 'medium'}`,
   }, debugEnabled);
@@ -632,7 +668,7 @@ async function main(): Promise<void> {
     cmdConfig = buildCommand(args, preset, isResume);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await vcpLog(logProjectRoot, {
+    await snsplayLog(logProjectRoot, {
       source: 'cli-executor', event: 'command_error', decision: 'error',
       details: msg,
     }, debugEnabled);
@@ -643,7 +679,7 @@ async function main(): Promise<void> {
 
   const builtPrompt = buildReviewPrompt(args, isResume);
   const truncatedPrompt = builtPrompt.length > 4096 ? builtPrompt.slice(0, 4096) + '…[truncated]' : builtPrompt;
-  await vcpLog(logProjectRoot, {
+  await snsplayLog(logProjectRoot, {
     source: 'cli-executor', event: 'command_built', decision: 'info',
     details: `args=${JSON.stringify(cmdConfig.args)}\n--- PROMPT ---\n${truncatedPrompt}\n--- END PROMPT ---`,
   }, debugEnabled);
@@ -666,7 +702,7 @@ async function main(): Promise<void> {
     }
   } catch { /* best-effort */ }
   const truncatedOutput = outputContent.length > 4096 ? outputContent.slice(0, 4096) + '…[truncated]' : outputContent;
-  await vcpLog(logProjectRoot, {
+  await snsplayLog(logProjectRoot, {
     source: 'cli-executor', event: 'command_result',
     decision: result.success ? 'info' : 'error',
     details: `success=${result.success} code=${result.code}\n--- OUTPUT ---\n${truncatedOutput}\n--- END OUTPUT ---`,
@@ -736,16 +772,17 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Success — stamp output with verification token proving script execution
+  // Success — write verification token to sidecar file (not in review JSON,
+  // which has additionalProperties: false in both schemas)
   const resolvedOutputFile = getOutputFile(args.type!, args.outputFile);
   const verificationToken = crypto.randomUUID();
-  validation.output!._codex_verification = {
+  const verificationData = {
     token: verificationToken,
     executed_by: 'cli-executor.ts',
     timestamp: new Date().toISOString(),
     pid: process.pid
   };
-  writeJson(resolvedOutputFile, validation.output!);
+  writeJson(`${resolvedOutputFile}.verification.json`, verificationData);
 
   // Create session marker for future resume
   if (preset.supports_resume) {

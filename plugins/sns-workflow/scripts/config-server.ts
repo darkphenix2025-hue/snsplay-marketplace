@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Dev Buddy Web Configuration Portal Server
+ * SNS-Workflow Web Configuration Portal Server
  *
- * REST API for managing AI presets and pipeline config.
- * Serves the Alpine.js SPA from plugins/dev-buddy/web/.
+ * REST API for managing AI presets and workflow config.
+ * Serves the Alpine.js SPA from plugins/sns-workflow/web/.
  *
  * Security:
  * - CORS restricted to exact localhost origin (no wildcard, no reflection)
@@ -20,10 +20,14 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { readPresets, writePresets, validatePreset, maskApiKey, maskPresetKeys, CONFIG_DIR } from './preset-utils.ts';
-import { loadPipelineConfig, fetchWithTimeout, atomicWriteFile, validateConfig, DEFAULT_CONFIG } from './pipeline-config.ts';
+import { loadWorkflowConfig, validateWorkflowConfig, DEFAULT_V3_CONFIG, fetchWithTimeout, atomicWriteFile, CONFIG_PATH as WORKFLOW_CONFIG_PATH } from './workflow-config.ts';
+import { discoverSystemPrompts, getSystemPrompt, writeCustomPrompt, deleteCustomPrompt } from './system-prompts.ts';
+import { loadChatroomConfig, saveChatroomConfig, validateChatroomConfig, DEFAULT_CHATROOM_CONFIG } from './chatroom-config.ts';
+import type { ChatroomConfig } from '../types/chatroom.ts';
 import type { Preset } from '../types/presets.ts';
 import { STAGE_DEFINITIONS } from '../types/stage-definitions.ts';
-import type { PipelineConfig, StageEntry } from '../types/pipeline.ts';
+import type { WorkflowConfig, StageExecutor } from '../types/workflow.ts';
+import { VALID_STAGE_TYPES, MODEL_NAME_REGEX } from '../types/stage-definitions.ts';
 
 // Allowed fields per preset type for field allowlisting (CWE-915)
 const ALLOWED_PRESET_FIELDS: Record<string, Set<string>> = {
@@ -35,6 +39,36 @@ const ALLOWED_PRESET_FIELDS: Record<string, Set<string>> = {
 // Reveal rate limiting: Map<presetName, Array<timestamp>>
 const revealTimestamps = new Map<string, number[]>();
 const REVEAL_MAX_PER_MINUTE = 10;
+
+/**
+ * Check if a port is available by attempting to bind a temporary server.
+ */
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const tempServer = Bun.serve({
+        port,
+        fetch: () => new Response('OK'),
+      });
+      tempServer.stop();
+      resolve(true);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * Get available port - prefer 5050, fallback to random if unavailable.
+ */
+async function getAvailablePort(preferredPort: number = 5050): Promise<number> {
+  if (await isPortAvailable(preferredPort)) {
+    return preferredPort;
+  }
+  // Port 5050 is in use, return 0 for OS-assigned random port
+  console.error(`[Config Server] Port ${preferredPort} is in use, using random port instead`);
+  return 0;
+}
 
 /**
  * Check if reveal is rate-limited for a given preset name.
@@ -490,7 +524,7 @@ function resetIdleTimer(
 /**
  * Start the config server.
  */
-async function startConfigServer(cwd: string, idleTimeoutMinutes: number): Promise<void> {
+async function startConfigServer(cwd: string, idleTimeoutMinutes: number, port: number): Promise<void> {
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let shutdownRequested = false;
 
@@ -500,7 +534,7 @@ async function startConfigServer(cwd: string, idleTimeoutMinutes: number): Promi
   const webDir = path.join(import.meta.dir, '..', 'web');
 
   const server = Bun.serve({
-    port: 0, // OS-assigned port
+    port: port, // Use specified port or 0 for OS-assigned
 
     fetch(req: Request): Response | Promise<Response> {
       const url = new URL(req.url);
@@ -511,10 +545,10 @@ async function startConfigServer(cwd: string, idleTimeoutMinutes: number): Promi
       const serverOrigin = `http://localhost:${server.port}`;
       const corsHeaders: Record<string, string> = origin === serverOrigin
         ? {
-            'Access-Control-Allow-Origin': serverOrigin,
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
+          'Access-Control-Allow-Origin': serverOrigin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
         : {};
 
       // Handle OPTIONS preflight
@@ -644,21 +678,20 @@ async function handleApiRequest(
       }
     }
 
-    // --- Pipeline config routes ---
-    // NOTE: /api/pipeline-config/defaults must be matched before /api/pipeline-config
-    // to avoid the less-specific route consuming requests for the sub-path.
-    if (pathname === '/api/pipeline-config/defaults') {
+    // --- Chatroom config routes ---
+    // NOTE: /api/chatroom-config/defaults must be matched before /api/chatroom-config
+    if (pathname === '/api/chatroom-config/defaults') {
       if (req.method === 'GET') {
-        return handleGetPipelineConfigDefaults(corsHeaders);
+        return handleGetChatroomConfigDefaults(corsHeaders);
       }
     }
 
-    if (pathname === '/api/pipeline-config') {
+    if (pathname === '/api/chatroom-config') {
       if (req.method === 'GET') {
-        return handleGetPipelineConfig(corsHeaders);
+        return handleGetChatroomConfig(corsHeaders);
       }
       if (req.method === 'PUT') {
-        return await handlePutPipelineConfig(req, corsHeaders);
+        return await handlePutChatroomConfig(req, corsHeaders);
       }
     }
 
@@ -667,6 +700,133 @@ async function handleApiRequest(
       const presetName = decodeURIComponent(pathname.slice('/api/preset-models/'.length));
       if (req.method === 'GET') {
         return handleGetPresetModels(presetName, corsHeaders);
+      }
+    }
+
+    // --- v3 System Prompts routes ---
+    if (pathname === '/api/system-prompts') {
+      if (req.method === 'GET') {
+        try {
+          const agentsDir = path.join(import.meta.dir, '..', 'system-prompts', 'built-in');
+          const prompts = discoverSystemPrompts(agentsDir);
+          return jsonResponse({
+            prompts: prompts.map(p => ({
+              name: p.name, description: p.description, tools: p.tools,
+              disallowedTools: p.disallowedTools, source: p.source,
+            })),
+          }, 200, corsHeaders);
+        } catch (err) {
+          return jsonResponse({ error: { code: 'DISCOVERY_ERROR', message: err instanceof Error ? err.message : 'Unknown error' } }, 500, corsHeaders);
+        }
+      }
+    }
+
+    if (pathname.startsWith('/api/system-prompts/')) {
+      const promptName = decodeURIComponent(pathname.slice('/api/system-prompts/'.length));
+      const agentsDir = path.join(import.meta.dir, '..', 'system-prompts', 'built-in');
+
+      if (req.method === 'GET') {
+        const prompt = getSystemPrompt(promptName, agentsDir);
+        if (!prompt) return jsonResponse({ error: { code: 'NOT_FOUND', message: `System prompt '${promptName}' not found` } }, 404, corsHeaders);
+        return jsonResponse({ prompt }, 200, corsHeaders);
+      }
+      if (req.method === 'PUT') {
+        const body = await req.text();
+        try {
+          writeCustomPrompt(promptName, body, agentsDir);
+          return jsonResponse({ success: true }, 200, corsHeaders);
+        } catch (err) {
+          return jsonResponse({ error: { code: 'VALIDATION_ERROR', message: err instanceof Error ? err.message : 'Unknown error' } }, 400, corsHeaders);
+        }
+      }
+      if (req.method === 'DELETE') {
+        try {
+          deleteCustomPrompt(promptName);
+          return jsonResponse({ success: true }, 200, corsHeaders);
+        } catch (err) {
+          return jsonResponse({ error: { code: 'DELETE_ERROR', message: err instanceof Error ? err.message : 'Unknown error' } }, 400, corsHeaders);
+        }
+      }
+    }
+
+    // --- v3 Stages routes ---
+    if (pathname === '/api/stages') {
+      if (req.method === 'GET') {
+        const config = loadWorkflowConfig();
+        return jsonResponse({ stages: config.stages }, 200, corsHeaders);
+      }
+    }
+
+    if (pathname.startsWith('/api/stages/')) {
+      const stageName = decodeURIComponent(pathname.slice('/api/stages/'.length));
+      if (req.method === 'PUT') {
+        // Validate stage name
+        if (!VALID_STAGE_TYPES.has(stageName)) {
+          return jsonResponse({ error: { code: 'INVALID_STAGE', message: `Unknown stage type '${stageName}'` } }, 400, corsHeaders);
+        }
+        const body = await req.json() as Record<string, unknown>;
+        const config = loadWorkflowConfig();
+        if (!body.executors || !Array.isArray(body.executors)) {
+          return jsonResponse({ error: { code: 'VALIDATION_ERROR', message: 'executors array is required' } }, 400, corsHeaders);
+        }
+        // Field allowlist for inline executors (CWE-915)
+        const allowedExecFields = new Set(['system_prompt', 'preset', 'model', 'parallel']);
+        for (let i = 0; i < (body.executors as unknown[]).length; i++) {
+          const exec = (body.executors as unknown[])[i];
+          if (!exec || typeof exec !== 'object' || Array.isArray(exec)) {
+            return jsonResponse({ error: { code: 'VALIDATION_ERROR', message: `executors[${i}]: must be an object` } }, 400, corsHeaders);
+          }
+          for (const key of Object.keys(exec as Record<string, unknown>)) {
+            if (!allowedExecFields.has(key)) {
+              return jsonResponse({ error: { code: 'INVALID_FIELD', message: `executors[${i}]: unknown field '${key}'` } }, 400, corsHeaders);
+            }
+          }
+          if (!exec.system_prompt || !exec.preset || !exec.model) {
+            return jsonResponse({ error: { code: 'VALIDATION_ERROR', message: `executors[${i}]: system_prompt, preset, and model are required` } }, 400, corsHeaders);
+          }
+          if (typeof exec.model === 'string' && !MODEL_NAME_REGEX.test(exec.model)) {
+            return jsonResponse({ error: { code: 'VALIDATION_ERROR', message: `executors[${i}]: invalid model name` } }, 400, corsHeaders);
+          }
+        }
+        config.stages[stageName as keyof typeof config.stages] = { executors: body.executors as StageExecutor[] };
+        validateWorkflowConfig(config);
+        atomicWriteFile(WORKFLOW_CONFIG_PATH, config);
+        return jsonResponse({ success: true }, 200, corsHeaders);
+      }
+    }
+
+    // --- v3 Workflows routes ---
+    if (pathname === '/api/workflows') {
+      if (req.method === 'GET') {
+        const config = loadWorkflowConfig();
+        return jsonResponse({ feature_workflow: config.feature_workflow, bugfix_workflow: config.bugfix_workflow }, 200, corsHeaders);
+      }
+      if (req.method === 'PUT') {
+        const body = await req.json() as Record<string, unknown>;
+        const config = loadWorkflowConfig();
+        if (body.feature_workflow) config.feature_workflow = body.feature_workflow as typeof config.feature_workflow;
+        if (body.bugfix_workflow) config.bugfix_workflow = body.bugfix_workflow as typeof config.bugfix_workflow;
+        validateWorkflowConfig(config);
+        atomicWriteFile(WORKFLOW_CONFIG_PATH, config);
+        return jsonResponse({ success: true }, 200, corsHeaders);
+      }
+    }
+
+    // --- v3 Settings routes ---
+    if (pathname === '/api/settings') {
+      if (req.method === 'GET') {
+        const config = loadWorkflowConfig();
+        return jsonResponse({ max_iterations: config.max_iterations, max_tdd_iterations: config.max_tdd_iterations, theme: config.theme }, 200, corsHeaders);
+      }
+      if (req.method === 'PUT') {
+        const body = await req.json() as Record<string, unknown>;
+        const config = loadWorkflowConfig();
+        if (typeof body.max_iterations === 'number') config.max_iterations = body.max_iterations;
+        if (typeof body.max_tdd_iterations === 'number') config.max_tdd_iterations = body.max_tdd_iterations;
+        if (typeof body.theme === 'string' && (body.theme === 'light' || body.theme === 'dark')) config.theme = body.theme as 'light' | 'dark';
+        validateWorkflowConfig(config);
+        atomicWriteFile(WORKFLOW_CONFIG_PATH, config);
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
     }
 
@@ -806,146 +966,25 @@ function handleGetStageDefinitions(corsHeaders: Record<string, string>): Respons
   return jsonResponse({ stage_definitions: STAGE_DEFINITIONS }, 200, corsHeaders);
 }
 
-// --- Pipeline config handlers ---
+// --- Chatroom config handlers ---
 
-function handleGetPipelineConfig(corsHeaders: Record<string, string>): Response {
-  const config = loadPipelineConfig();
+function handleGetChatroomConfig(corsHeaders: Record<string, string>): Response {
+  const config = loadChatroomConfig();
   return jsonResponse({ config }, 200, corsHeaders);
 }
 
-/**
- * Return the factory default config (DEFAULT_CONFIG) directly.
- * Used by the web portal's "Reset to Default" button — always returns the
- * hard-coded factory template, never the user-saved config from disk.
- */
-function handleGetPipelineConfigDefaults(corsHeaders: Record<string, string>): Response {
-  return jsonResponse({ config: DEFAULT_CONFIG }, 200, corsHeaders);
+function handleGetChatroomConfigDefaults(corsHeaders: Record<string, string>): Response {
+  return jsonResponse({ config: DEFAULT_CHATROOM_CONFIG }, 200, corsHeaders);
 }
 
-// Allowed top-level pipeline config fields (CWE-915)
-const ALLOWED_TOP_LEVEL_FIELDS = new Set([
-  'feature_pipeline', 'bugfix_pipeline', 'max_iterations', 'team_name_pattern',
-]);
-
-// Allowed stage entry fields
-const ALLOWED_STAGE_ENTRY_FIELDS = new Set(['type', 'provider', 'model', 'parallel']);
-
-/**
- * Validate a stage entry object for field allowlisting and structural correctness.
- * Returns an error message string, or null if valid.
- */
-function validateStageEntry(entry: unknown, label: string): string | null {
-  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-    return `${label}: must be an object`;
-  }
-  const obj = entry as Record<string, unknown>;
-  const unknownFields = Object.keys(obj).filter(k => !ALLOWED_STAGE_ENTRY_FIELDS.has(k));
-  if (unknownFields.length > 0) {
-    return `${label}: unknown fields rejected: ${unknownFields.join(', ')}`;
-  }
-  if (typeof obj.type !== 'string' || obj.type.trim() === '') {
-    return `${label}: type must be a non-empty string`;
-  }
-  if (typeof obj.provider !== 'string' || obj.provider.trim() === '') {
-    return `${label}: provider must be a non-empty string`;
-  }
-  if (typeof obj.model !== 'string' || obj.model.trim() === '') {
-    return `${label}: model must be a non-empty string`;
-  }
-  if ('parallel' in obj && typeof obj.parallel !== 'boolean') {
-    return `${label}: parallel must be a boolean`;
-  }
-  return null;
-}
-
-async function handlePutPipelineConfig(req: Request, corsHeaders: Record<string, string>): Promise<Response> {
+async function handlePutChatroomConfig(req: Request, corsHeaders: Record<string, string>): Promise<Response> {
   const body = await parseJsonBody(req);
-
-  let config: PipelineConfig;
-
-  {
-    // Field allowlisting (CWE-915)
-    const unknownTopLevel = Object.keys(body).filter(k => !ALLOWED_TOP_LEVEL_FIELDS.has(k));
-    if (unknownTopLevel.length > 0) {
-      return jsonResponse(
-        { error: { code: 'INVALID_CONFIG', message: `Unknown top-level fields rejected: ${unknownTopLevel.join(', ')}` } },
-        400,
-        corsHeaders
-      );
-    }
-
-    // Validate both pipeline arrays are present
-    if (!Array.isArray(body.feature_pipeline)) {
-      return jsonResponse(
-        { error: { code: 'INVALID_CONFIG', message: "Config must include 'feature_pipeline' as an array" } },
-        400,
-        corsHeaders
-      );
-    }
-    if (!Array.isArray(body.bugfix_pipeline)) {
-      return jsonResponse(
-        { error: { code: 'INVALID_CONFIG', message: "Config must include 'bugfix_pipeline' as an array" } },
-        400,
-        corsHeaders
-      );
-    }
-
-    // Validate stage entry fields on both arrays
-    const featurePipeline = body.feature_pipeline as unknown[];
-    for (let i = 0; i < featurePipeline.length; i++) {
-      const err = validateStageEntry(featurePipeline[i], `feature_pipeline[${i}]`);
-      if (err) {
-        return jsonResponse({ error: { code: 'INVALID_CONFIG', message: err } }, 400, corsHeaders);
-      }
-    }
-    const bugfixPipeline = body.bugfix_pipeline as unknown[];
-    for (let i = 0; i < bugfixPipeline.length; i++) {
-      const err = validateStageEntry(bugfixPipeline[i], `bugfix_pipeline[${i}]`);
-      if (err) {
-        return jsonResponse({ error: { code: 'INVALID_CONFIG', message: err } }, 400, corsHeaders);
-      }
-    }
-
-    // Validate optional settings fields
-    if ('max_iterations' in body) {
-      const mi = body.max_iterations;
-      if (!Number.isInteger(mi) || (mi as number) <= 0) {
-        return jsonResponse(
-          { error: { code: 'INVALID_CONFIG', message: "'max_iterations' must be a positive integer" } },
-          400,
-          corsHeaders
-        );
-      }
-    }
-    if ('team_name_pattern' in body) {
-      const tnp = body.team_name_pattern;
-      if (typeof tnp !== 'string' || tnp.trim() === '') {
-        return jsonResponse(
-          { error: { code: 'INVALID_CONFIG', message: "'team_name_pattern' must be a non-empty string" } },
-          400,
-          corsHeaders
-        );
-      }
-    }
-
-    config = body as unknown as PipelineConfig;
+  const presets = readPresets();
+  const error = validateChatroomConfig(body, presets);
+  if (error) {
+    return jsonResponse({ error: { code: 'INVALID_CONFIG', message: error } }, 400, corsHeaders);
   }
-
-  // Run semantic validation (stage type constraints, singleton, pipeline restrictions, model regex)
-  try {
-    validateConfig(config);
-  } catch (err) {
-    return jsonResponse(
-      { error: { code: 'INVALID_CONFIG', message: err instanceof Error ? err.message : 'Config validation failed' } },
-      400,
-      corsHeaders
-    );
-  }
-
-  // Write atomically to ~/.vcp/dev-buddy.json
-  const pipelineConfigPath = path.join(os.homedir(), '.vcp', 'dev-buddy.json');
-  atomicWriteFile(pipelineConfigPath, config);
-
+  saveChatroomConfig(body as unknown as ChatroomConfig);
   return jsonResponse({ saved: true }, 200, corsHeaders);
 }
 
@@ -1005,9 +1044,9 @@ async function serveStaticFile(
     const ext = path.extname(resolved);
     const contentType = ext === '.js' ? 'application/javascript'
       : ext === '.css' ? 'text/css'
-      : ext === '.html' ? 'text/html'
-      : ext === '.json' ? 'application/json'
-      : 'application/octet-stream';
+        : ext === '.html' ? 'text/html'
+          : ext === '.json' ? 'application/json'
+            : 'application/octet-stream';
 
     return new Response(file, { headers: { 'Content-Type': contentType, ...corsHeaders } });
   } catch {
@@ -1030,5 +1069,19 @@ if (import.meta.main) {
     process.exit(1);
   }
 
-  await startConfigServer(cwd, idleTimeoutMinutes);
+  // Determine port: --port flag takes precedence, otherwise use 5050 (or random if unavailable)
+  const portIndex = process.argv.indexOf('--port');
+  let port: number;
+  if (portIndex >= 0) {
+    port = parseInt(process.argv[portIndex + 1], 10);
+    if (isNaN(port) || port <= 0 || port > 65535) {
+      console.error('--port must be a positive integer between 1 and 65535');
+      process.exit(1);
+    }
+  } else {
+    // Default: prefer 5050, fallback to random if unavailable
+    port = await getAvailablePort(5050);
+  }
+
+  await startConfigServer(cwd, idleTimeoutMinutes, port);
 }

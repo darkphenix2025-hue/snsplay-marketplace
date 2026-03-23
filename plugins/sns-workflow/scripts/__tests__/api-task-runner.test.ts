@@ -50,7 +50,9 @@ describe('buildSessionEnv', () => {
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('MiniMax-M2.5');
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('MiniMax-M2.5');
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('MiniMax-M2.5');
-    expect(env.CLAUDE_CODE_SUBAGENT_MODEL).toBe('MiniMax-M2.5');
+    // CLAUDE_CODE_SUBAGENT_MODEL is set to 'sonnet' (alias) — resolved at runtime
+    // via ANTHROPIC_DEFAULT_SONNET_MODEL to the actual provider model
+    expect(env.CLAUDE_CODE_SUBAGENT_MODEL).toBe('sonnet');
   });
 
   test('preserves model name case sensitivity', () => {
@@ -69,7 +71,8 @@ describe('buildSessionEnv', () => {
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('ModelB');
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('ModelB');
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('ModelB');
-    expect(env.CLAUDE_CODE_SUBAGENT_MODEL).toBe('ModelB');
+    // CLAUDE_CODE_SUBAGENT_MODEL always 'sonnet' — resolved via ANTHROPIC_DEFAULT_SONNET_MODEL
+    expect(env.CLAUDE_CODE_SUBAGENT_MODEL).toBe('sonnet');
   });
 
   test('sets provider credentials', () => {
@@ -301,6 +304,7 @@ describe('parseArgs', () => {
       cwd: '/project',
       taskTimeoutMs: 300_000,
       taskFromStdin: false,
+      stream: false,
     });
   });
 
@@ -346,6 +350,29 @@ describe('parseArgs', () => {
       '--task', 't',
     ]);
     expect(result.taskTimeoutMs).toBe(DEFAULT_TASK_TIMEOUT_MS);
+  });
+
+  test('parses --stream flag', () => {
+    const result = parseArgs([
+      ...base,
+      '--preset', 'p',
+      '--model', 'm',
+      '--cwd', '/d',
+      '--task', 't',
+      '--stream',
+    ]);
+    expect(result.stream).toBe(true);
+  });
+
+  test('defaults stream to false', () => {
+    const result = parseArgs([
+      ...base,
+      '--preset', 'p',
+      '--model', 'm',
+      '--cwd', '/d',
+      '--task', 't',
+    ]);
+    expect(result.stream).toBe(false);
   });
 
   test('rejects missing required arguments', () => {
@@ -414,9 +441,9 @@ describe('parseArgs', () => {
       '--model', 'm',
       '--cwd', '/d',
       '--task', 't',
-      '--system-prompt', '/path/to/docs/review-guidelines.md',
+      '--system-prompt', '/path/to/rules/plan-review-guidelines.md',
     ]);
-    expect(result.systemPrompt).toBe('/path/to/docs/review-guidelines.md');
+    expect(result.systemPrompt).toBe('/path/to/rules/plan-review-guidelines.md');
   });
 
   test('omitting --system-prompt leaves it undefined', () => {

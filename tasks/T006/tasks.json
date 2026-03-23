@@ -1,0 +1,59 @@
+{
+  "name": "应用框架",
+  "branchName": "feature/framework",
+  "description": "应用基础设施，包括后端API、前端Web和桌面端封装",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "后端API框架",
+      "description": "使用FastAPI搭建后端API框架",
+      "acceptanceCriteria": [
+        "FastAPI项目初始化",
+        "实现API路由注册",
+        "实现统一错误处理",
+        "实现Swagger API文档",
+        "pytest tests/test_api.py passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    },
+    {
+      "id": "US-002",
+      "title": "前端Web框架",
+      "description": "使用React + TypeScript搭建前端框架",
+      "acceptanceCriteria": [
+        "React + TypeScript项目初始化",
+        "配置React Router路由",
+        "配置Zustand状态管理",
+        "实现基础布局组件",
+        "配置ECharts",
+        "pnpm typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [],
+      "estimated_hours": 6,
+      "timeout_hours": 12
+    },
+    {
+      "id": "US-003",
+      "title": "桌面端封装",
+      "description": "使用Tauri封装桌面应用",
+      "acceptanceCriteria": [
+        "Tauri 2.0项目初始化",
+        "配置应用窗口",
+        "实现系统托盘",
+        "配置自动更新",
+        "pnpm tauri build成功"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": ["US-002"],
+      "estimated_hours": 4,
+      "timeout_hours": 8
+    }
+  ]
+}
