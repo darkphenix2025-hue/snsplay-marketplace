@@ -1,0 +1,206 @@
+<svg viewBox="0 0 1400 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowDev" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565C0"/>
+    </marker>
+    <marker id="arrowMerge" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2E7D32"/>
+    </marker>
+    <linearGradient id="mainDevGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt1DevGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1565C0;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt2DevGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#7B1FA2;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="35" text-anchor="middle" font-size="22" font-weight="bold" fill="#333">开发线同步时序图：wt1/wt2 ↔ main</text>
+  <text x="700" y="60" text-anchor="middle" font-size="14" fill="#666">开发线变更通过 main 间接影响 production</text>
+
+  <!-- ==================== 场景 1: wt1 功能完成 ==================== -->
+  <g transform="translate(50, 90)">
+    <rect x="0" y="0" width="1300" height="280" rx="10" fill="#E3F2FD" stroke="#2196F3" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1565C0">场景 1: wt1 功能完成并提交</text>
+
+    <!-- Lifelines -->
+    <line x1="200" y1="60" x2="200" y2="250" stroke="#4CAF50" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="500" y1="60" x2="500" y2="250" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="800" y1="60" x2="800" y2="250" stroke="#9C27B0" stroke-width="3" stroke-dasharray="5,3"/>
+
+    <!-- Lifeline boxes -->
+    <rect x="140" y="50" width="120" height="30" rx="5" fill="url(#mainDevGrad)" stroke="#2E7D32"/>
+    <text x="200" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">main</text>
+
+    <rect x="440" y="50" width="120" height="30" rx="5" fill="url(#wt1DevGrad)" stroke="#1565C0"/>
+    <text x="500" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-1</text>
+
+    <rect x="740" y="50" width="120" height="30" rx="5" fill="url(#wt2DevGrad)" stroke="#7B1FA2"/>
+    <text x="800" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-2</text>
+
+    <!-- Time sequence -->
+    <g transform="translate(0, 50)">
+      <!-- Initial state -->
+      <circle cx="200" cy="100" r="10" fill="#4CAF50"/>
+      <text x="200" y="105" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="500" cy="100" r="10" fill="#2196F3"/>
+      <text x="500" y="105" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="800" cy="100" r="10" fill="#9C27B0"/>
+      <text x="800" y="105" text-anchor="middle" font-size="10" fill="white">A</text>
+      <text x="350" y="105" text-anchor="middle" font-size="11" fill="#666">初始同步状态</text>
+
+      <!-- wt1 develops -->
+      <circle cx="500" cy="150" r="12" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+      <text x="500" y="155" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="580" y="155" font-size="11" fill="#1565C0">← 功能开发完成</text>
+      <line x1="500" y1="100" x2="500" y2="150" stroke="#2196F3" stroke-width="3"/>
+
+      <!-- wt2 unchanged -->
+      <circle cx="800" cy="150" r="8" fill="#9C27B0" opacity="0.5"/>
+      <text x="880" y="155" font-size="11" fill="#9E9E9E">无变更</text>
+      <line x1="800" y1="100" x2="800" y2="150" stroke="#9C27B0" stroke-width="3" stroke-dasharray="5,3"/>
+
+      <!-- Merge to main -->
+      <rect x="520" y="165" width="200" height="35" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="620" y="180" text-anchor="middle" font-size="10" fill="#2E7D32" font-family="monospace">git merge wt-1</text>
+      <text x="620" y="195" text-anchor="middle" font-size="10" fill="#2E7D32" font-family="monospace">git push origin main</text>
+      <line x1="500" y1="162" x2="200" y2="162" stroke="#2E7D32" stroke-width="2" marker-end="url(#arrowMerge)"/>
+
+      <!-- Main updated -->
+      <circle cx="200" cy="210" r="12" fill="#2E7D32"/>
+      <text x="200" y="215" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="280" y="215" font-size="11" fill="#2E7D32">← 已合并</text>
+      <line x1="200" y1="100" x2="200" y2="210" stroke="#4CAF50" stroke-width="3"/>
+
+      <!-- wt-2 sync -->
+      <rect x="520" y="225" width="250" height="35" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="645" y="240" text-anchor="middle" font-size="10" fill="#7B1FA2" font-family="monospace">wt-2: git rebase origin/main</text>
+      <text x="645" y="255" text-anchor="middle" font-size="10" fill="#7B1FA2" font-family="monospace"># 可选：获取最新 main</text>
+      <line x1="800" y1="150" x2="800" y2="230" stroke="#9C27B0" stroke-width="2" marker-end="url(#arrowDev)"/>
+    </g>
+  </g>
+
+  <!-- ==================== 场景 2: wt1 和 wt2 都完成 ==================== -->
+  <g transform="translate(50, 390)">
+    <rect x="0" y="0" width="1300" height="320" rx="10" fill="#F3E5F5" stroke="#9C27B0" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#7B1FA2">场景 2: wt1 和 wt2 都完成 (串行合并)</text>
+
+    <!-- Lifelines -->
+    <line x1="200" y1="60" x2="200" y2="290" stroke="#4CAF50" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="500" y1="60" x2="500" y2="290" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="800" y1="60" x2="800" y2="290" stroke="#9C27B0" stroke-width="3" stroke-dasharray="5,3"/>
+
+    <!-- Lifeline boxes -->
+    <rect x="140" y="50" width="120" height="30" rx="5" fill="url(#mainDevGrad)" stroke="#2E7D32"/>
+    <text x="200" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">main</text>
+
+    <rect x="440" y="50" width="120" height="30" rx="5" fill="url(#wt1DevGrad)" stroke="#1565C0"/>
+    <text x="500" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-1</text>
+
+    <rect x="740" y="50" width="120" height="30" rx="5" fill="url(#wt2DevGrad)" stroke="#7B1FA2"/>
+    <text x="800" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-2</text>
+
+    <!-- Time sequence -->
+    <g transform="translate(0, 50)">
+      <!-- Both complete -->
+      <circle cx="500" cy="50" r="12" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+      <text x="500" y="55" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <circle cx="800" cy="50" r="12" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="800" y="55" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <text x="650" y="55" text-anchor="middle" font-size="11" fill="#F57C00">⚠️ 都完成，需串行合并</text>
+
+      <!-- Step 1: Merge wt-1 -->
+      <rect x="100" y="75" width="1100" height="100" rx="8" fill="#E3F2FD" stroke="#2196F3"/>
+      <text x="650" y="95" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565C0">Step 1: 合并 wt-1</text>
+
+      <line x1="500" y1="50" x2="500" y2="110" stroke="#2196F3" stroke-width="3"/>
+      <path d="M 500 120 L 500 135 L 200 135 L 200 150" stroke="#2E7D32" stroke-width="2" marker-end="url(#arrowMerge)"/>
+      <circle cx="200" cy="150" r="12" fill="#2E7D32"/>
+      <text x="200" y="155" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="280" y="155" font-size="11" fill="#2E7D32">← main 已合并 B1</text>
+
+      <!-- Step 2: Sync wt-2 -->
+      <rect x="100" y="185" width="1100" height="100" rx="8" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="650" y="205" text-anchor="middle" font-size="14" font-weight="bold" fill="#7B1FA2">Step 2: wt-2 同步到最新 main</text>
+
+      <path d="M 500 160 L 500 220 L 800 220 L 800 235" stroke="#9C27B0" stroke-width="2" marker-end="url(#arrowDev)"/>
+      <rect x="550" y="230" width="250" height="35" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="675" y="245" text-anchor="middle" font-size="10" fill="#7B1FA2" font-family="monospace">git rebase origin/main</text>
+      <text x="675" y="260" text-anchor="middle" font-size="10" fill="#7B1FA2" font-family="monospace"># wt-2 现在基于 B1</text>
+
+      <!-- wt-2 after rebase -->
+      <circle cx="800" cy="275" r="10" fill="#4CAF50"/>
+      <text x="800" y="280" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <circle cx="800" cy="305" r="12" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="800" y="310" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <text x="880" y="300" font-size="11" fill="#4CAF50">✅ 已同步</text>
+    </g>
+  </g>
+
+  <!-- ==================== 场景 3: main 有变更时 wt 同步 ==================== -->
+  <g transform="translate(50, 730)">
+    <rect x="0" y="0" width="1300" height="220" rx="10" fill="#FFF3E0" stroke="#FF9800" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#F57C00">场景 3: main 有变更 (C)，wt1/wt2 需同步</text>
+
+    <!-- Lifelines -->
+    <line x1="200" y1="60" x2="200" y2="190" stroke="#4CAF50" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="500" y1="60" x2="500" y2="190" stroke="#2196F3" stroke-width="3" stroke-dasharray="5,3"/>
+    <line x1="800" y1="60" x2="800" y2="190" stroke="#9C27B0" stroke-width="3" stroke-dasharray="5,3"/>
+
+    <!-- Lifeline boxes -->
+    <rect x="140" y="50" width="120" height="30" rx="5" fill="url(#mainDevGrad)" stroke="#2E7D32"/>
+    <text x="200" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">main</text>
+
+    <rect x="440" y="50" width="120" height="30" rx="5" fill="url(#wt1DevGrad)" stroke="#1565C0"/>
+    <text x="500" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-1</text>
+
+    <rect x="740" y="50" width="120" height="30" rx="5" fill="url(#wt2DevGrad)" stroke="#7B1FA2"/>
+    <text x="800" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-2</text>
+
+    <!-- Time sequence -->
+    <g transform="translate(0, 50)">
+      <!-- Main has C -->
+      <circle cx="200" cy="50" r="12" fill="#2E7D32"/>
+      <text x="200" y="55" text-anchor="middle" font-size="10" fill="white">C</text>
+      <text x="280" y="55" font-size="11" fill="#2E7D32">← main 新提交 (如配置更新)</text>
+
+      <!-- wt1 and wt2 behind -->
+      <circle cx="500" cy="50" r="10" fill="#2196F3" opacity="0.5"/>
+      <text x="500" y="55" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="800" cy="50" r="10" fill="#9C27B0" opacity="0.5"/>
+      <text x="800" y="55" text-anchor="middle" font-size="10" fill="white">A</text>
+      <text x="650" y="55" text-anchor="middle" font-size="11" fill="#F57C00">⚠️ wt1/wt2 落后</text>
+
+      <!-- Sync commands -->
+      <rect x="100" y="80" width="1100" height="110" rx="8" fill="#263238" stroke="#546E7A"/>
+      <text x="650" y="100" text-anchor="middle" font-size="14" font-weight="bold" fill="#80CBC4">同步命令</text>
+
+      <text x="150" y="125" font-size="11" fill="#A5D6A7" font-family="monospace"># wt-1 同步</text>
+      <text x="150" y="145" font-size="10" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-A</text>
+      <text x="150" y="160" font-size="10" fill="#E8F5E9" font-family="monospace">git fetch origin &amp;&amp; git rebase origin/main</text>
+
+      <text x="500" y="125" font-size="11" fill="#A5D6A7" font-family="monospace"># wt-2 同步</text>
+      <text x="500" y="145" font-size="10" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-B</text>
+      <text x="500" y="160" font-size="10" fill="#E8F5E9" font-family="monospace">git fetch origin &amp;&amp; git rebase origin/main</text>
+
+      <text x="850" y="125" font-size="11" fill="#FF9800" font-family="monospace"># 验证</text>
+      <text x="850" y="145" font-size="10" fill="#E8F5E9" font-family="monospace">git worktree list</text>
+      <text x="850" y="160" font-size="10" fill="#E8F5E9" font-family="monospace">git log --oneline -3 --all</text>
+
+      <!-- After sync -->
+      <circle cx="200" cy="210" r="10" fill="#4CAF50"/>
+      <text x="200" y="215" text-anchor="middle" font-size="10" fill="white">C</text>
+      <circle cx="500" cy="210" r="10" fill="#4CAF50"/>
+      <text x="500" y="215" text-anchor="middle" font-size="10" fill="white">C</text>
+      <circle cx="800" cy="210" r="10" fill="#4CAF50"/>
+      <text x="800" y="215" text-anchor="middle" font-size="10" fill="white">C</text>
+      <text x="650" y="215" text-anchor="middle" font-size="11" fill="#4CAF50">✅ 全部同步</text>
+    </g>
+  </g>
+</svg>

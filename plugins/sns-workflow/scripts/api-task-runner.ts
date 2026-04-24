@@ -564,8 +564,24 @@ export class OpenAIRunner implements AgentRunner {
     }
     messages.push({ role: 'user', content: task });
 
-    // Normalize base URL: strip trailing /v1 or /v1/ to avoid /v1/v1/chat/completions
-    const baseUrl = this.preset.base_url.replace(/\/v1\/?$/, '');
+    // Build API endpoint URL with version-aware path handling
+    let baseUrl = this.preset.base_url;
+    // Strip trailing slash for consistent concatenation
+    baseUrl = baseUrl.replace(/\/$/, '');
+
+    // Determine the completions path based on whether base_url contains a version number
+    const hasVersionInUrl = /\/v\d+\/?$/.test(baseUrl);
+    let completionsPath: string;
+
+    if (hasVersionInUrl) {
+      // Base URL already has version (e.g., /api/coding/paas/v4), use chat_completions_path directly
+      // Default to /chat/completions if not specified
+      completionsPath = this.preset.chat_completions_path || '/chat/completions';
+    } else {
+      // Base URL has no version, default to /v1/chat/completions
+      completionsPath = this.preset.chat_completions_path || '/v1/chat/completions';
+    }
+
     const deadline = Date.now() + options.timeoutMs;
 
     for (let i = 0; i < OPENAI_MAX_ITERATIONS; i++) {
@@ -587,7 +603,7 @@ export class OpenAIRunner implements AgentRunner {
         body.reasoning_effort = this.preset.reasoning_effort;
       }
 
-      const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+      const resp = await fetch(`${baseUrl}${completionsPath}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.preset.api_key}`,

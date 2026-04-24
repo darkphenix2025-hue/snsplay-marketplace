@@ -1,0 +1,300 @@
+<svg viewBox="0 0 1400 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowSync" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <linearGradient id="mainSync" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt1Sync" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1565C0;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt2Sync" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#7B1FA2;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#333">三线同步完整流程：main / wt-1 / wt-2 / production</text>
+  <text x="700" y="70" text-anchor="middle" font-size="14" fill="#666">当任一分支提交后，如何同步所有分支并更新生产环境</text>
+
+  <!-- Flow Overview -->
+  <g transform="translate(50, 100)">
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#E3F2FD" stroke="#2196F3" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#1565C0">同步总览图</text>
+
+    <!-- Main -->
+    <g transform="translate(100, 50)">
+      <rect x="0" y="0" width="280" height="70" rx="8" fill="url(#mainSync)" stroke="#2E7D32"/>
+      <text x="140" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="white">main</text>
+      <text x="140" y="55" text-anchor="middle" font-size="12" fill="#E8F5E9">稳定开发线</text>
+    </g>
+
+    <!-- Arrows -->
+    <path d="M 390 85 L 420 85" stroke="#333" stroke-width="2" marker-end="url(#arrowSync)"/>
+    <path d="M 390 50 L 420 50" stroke="#333" stroke-width="2" marker-end="url(#arrowSync)"/>
+
+    <!-- WT1 -->
+    <g transform="translate(430, 50)">
+      <rect x="0" y="0" width="280" height="35" rx="8" fill="url(#wt1Sync)" stroke="#1565C0"/>
+      <text x="140" y="23" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-1 (feature-A)</text>
+    </g>
+
+    <!-- WT2 -->
+    <g transform="translate(430, 85)">
+      <rect x="0" y="0" width="280" height="35" rx="8" fill="url(#wt2Sync)" stroke="#7B1FA2"/>
+      <text x="140" y="23" text-anchor="middle" font-size="14" font-weight="bold" fill="white">wt-2 (feature-B)</text>
+    </g>
+
+    <!-- Bidirectional Arrows -->
+    <path d="M 720 67 L 750 67" stroke="#333" stroke-width="2" marker-end="url(#arrowSync)"/>
+    <path d="M 750 85 L 720 85" stroke="#333" stroke-width="2" marker-end="url(#arrowSync)"/>
+
+    <!-- Production -->
+    <g transform="translate(760, 50)">
+      <rect x="0" y="0" width="280" height="70" rx="8" fill="#FF9800" stroke="#F57C00"/>
+      <text x="140" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="white">production</text>
+      <text x="140" y="55" text-anchor="middle" font-size="12" fill="#FFF3E0">线上稳定版</text>
+    </g>
+
+    <!-- Labels -->
+    <text x="800" y="115" font-size="11" fill="#2E7D32">← git merge →</text>
+    <text x="950" y="115" font-size="11" fill="#1565C0">← git rebase →</text>
+    <text x="1100" y="115" font-size="11" fill="#F57C00">← git tag →</text>
+  </g>
+
+  <!-- Scenario Matrix -->
+  <g transform="translate(50, 260)">
+    <rect x="0" y="0" width="1300" height="380" rx="10" fill="#FAFAFA" stroke="#9E9E9E" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">提交后同步矩阵</text>
+
+    <!-- Header -->
+    <g transform="translate(20, 50)">
+      <rect x="0" y="0" width="200" height="40" rx="5" fill="#BDBDBD" stroke="#757575"/>
+      <text x="100" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">触发事件</text>
+
+      <rect x="210" y="0" width="200" height="40" rx="5" fill="#BDBDBD" stroke="#757575"/>
+      <text x="310" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">main 同步操作</text>
+
+      <rect x="420" y="0" width="200" height="40" rx="5" fill="#BDBDBD" stroke="#757575"/>
+      <text x="520" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">wt-1 同步操作</text>
+
+      <rect x="630" y="0" width="200" height="40" rx="5" fill="#BDBDBD" stroke="#757575"/>
+      <text x="730" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">wt-2 同步操作</text>
+
+      <rect x="840" y="0" width="440" height="40" rx="5" fill="#BDBDBD" stroke="#757575"/>
+      <text x="1060" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">production 同步操作</text>
+    </g>
+
+    <!-- Row 1: WT1 commits -->
+    <g transform="translate(20, 100)">
+      <rect x="0" y="0" width="200" height="50" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <text x="100" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#1565C0">wt-1 提交</text>
+      <text x="100" y="38" text-anchor="middle" font-size="10" fill="#333">(feature-A 完成)</text>
+
+      <rect x="210" y="0" width="200" height="50" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#2E7D32">git merge feature-A</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#2E7D32">git push origin main</text>
+
+      <rect x="420" y="0" width="200" height="50" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#1565C0">已完成提交</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#1565C0">等待合并</text>
+
+      <rect x="630" y="0" width="200" height="50" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#7B1FA2">无操作</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#7B1FA2">(无变更)</text>
+
+      <rect x="840" y="0" width="440" height="50" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="1060" y="25" text-anchor="middle" font-size="11" fill="#F57C00">等待 main 稳定后发布</text>
+      <text x="1060" y="42" text-anchor="middle" font-size="10" fill="#F57C00">(通常累积多个功能后统一发布)</text>
+    </g>
+
+    <!-- Row 2: WT2 commits -->
+    <g transform="translate(20, 160)">
+      <rect x="0" y="0" width="200" height="50" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="100" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2 提交</text>
+      <text x="100" y="38" text-anchor="middle" font-size="10" fill="#333">(feature-B 完成)</text>
+
+      <rect x="210" y="0" width="200" height="50" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#2E7D32">git merge feature-B</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#2E7D32">git push origin main</text>
+
+      <rect x="420" y="0" width="200" height="50" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#1565C0">无操作</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#1565C0">(无变更)</text>
+
+      <rect x="630" y="0" width="200" height="50" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#7B1FA2">已完成提交</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#7B1FA2">等待合并</text>
+
+      <rect x="840" y="0" width="440" height="50" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="1060" y="25" text-anchor="middle" font-size="11" fill="#F57C00">等待 main 稳定后发布</text>
+    </g>
+
+    <!-- Row 3: Main commits -->
+    <g transform="translate(20, 220)">
+      <rect x="0" y="0" width="200" height="50" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="100" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#2E7D32">main 提交</text>
+      <text x="100" y="38" text-anchor="middle" font-size="10" fill="#333">(C 提交 - 如配置更新)</text>
+
+      <rect x="210" y="0" width="200" height="50" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#2E7D32">已完成提交</text>
+
+      <rect x="420" y="0" width="200" height="50" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#C62828">⚠️ git rebase origin/main</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#C62828">(获取 C 提交)</text>
+
+      <rect x="630" y="0" width="200" height="50" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#C62828">⚠️ git rebase origin/main</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#C62828">(获取 C 提交)</text>
+
+      <rect x="840" y="0" width="440" height="50" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="1060" y="25" text-anchor="middle" font-size="11" fill="#F57C00">无操作 (开发中提交通常不立即发布)</text>
+    </g>
+
+    <!-- Row 4: WT1 + Main both have changes -->
+    <g transform="translate(20, 280)">
+      <rect x="0" y="0" width="200" height="60" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="100" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="#F57C00">main 有 C +</text>
+      <text x="100" y="35" text-anchor="middle" font-size="12" font-weight="bold" fill="#1565C0">wt-1 有 B1</text>
+      <text x="100" y="52" text-anchor="middle" font-size="10" fill="#333">(最常见复杂场景)</text>
+
+      <rect x="210" y="0" width="200" height="60" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="105" y="20" text-anchor="middle" font-size="10" fill="#2E7D32">等待 wt-1 同步后</text>
+      <text x="105" y="37" text-anchor="middle" font-size="10" fill="#2E7D32">git merge feature-A</text>
+      <text x="105" y="54" text-anchor="middle" font-size="10" fill="#2E7D32">git push origin main</text>
+
+      <rect x="420" y="0" width="200" height="60" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="20" text-anchor="middle" font-size="10" fill="#C62828">1. git fetch origin</text>
+      <text x="105" y="37" text-anchor="middle" font-size="10" fill="#C62828">2. git rebase origin/main</text>
+      <text x="105" y="54" text-anchor="middle" font-size="10" fill="#C62828">3. 解决冲突 (如有)</text>
+
+      <rect x="630" y="0" width="200" height="60" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#7B1FA2">等待 main 合并后</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#7B1FA2">再同步</text>
+
+      <rect x="840" y="0" width="440" height="60" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="1060" y="35" text-anchor="middle" font-size="11" fill="#F57C00">等待所有功能合并稳定后发布</text>
+    </g>
+
+    <!-- Row 5: Production hotfix -->
+    <g transform="translate(20, 350)">
+      <rect x="0" y="0" width="200" height="50" rx="5" fill="#FFCDD2" stroke="#F44336"/>
+      <text x="100" y="25" text-anchor="middle" font-size="12" font-weight="bold" fill="#C62828">production 热修复</text>
+      <text x="100" y="42" text-anchor="middle" font-size="10" fill="#333">(紧急 bug)</text>
+
+      <rect x="210" y="0" width="200" height="50" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#C62828">⚠️ git merge hotfix/*</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#C62828">(必须同步!)</text>
+
+      <rect x="420" y="0" width="200" height="50" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#C62828">⚠️ git rebase origin/main</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#C62828">(获取热修复)</text>
+
+      <rect x="630" y="0" width="200" height="50" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="105" y="25" text-anchor="middle" font-size="11" fill="#C62828">⚠️ git rebase origin/main</text>
+      <text x="105" y="42" text-anchor="middle" font-size="10" fill="#C62828">(获取热修复)</text>
+
+      <rect x="840" y="0" width="440" height="50" rx="5" fill="#FFCDD2" stroke="#F44336"/>
+      <text x="1060" y="25" text-anchor="middle" font-size="11" fill="#C62828">hotfix 分支 → production</text>
+      <text x="1060" y="42" text-anchor="middle" font-size="10" fill="#C62828">git tag -a v1.2.1</text>
+    </g>
+  </g>
+
+  <!-- Daily Sync Script -->
+  <g transform="translate(50, 660)">
+    <rect x="0" y="0" width="1300" height="200" rx="10" fill="#263238" stroke="#546E7A" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#80CBC4">自动化同步脚本</text>
+
+    <text x="40" y="65" font-size="12" fill="#80CBC4" font-family="monospace">#!/bin/bash</text>
+    <text x="40" y="85" font-size="12" fill="#80CBC4" font-family="monospace"># sync-all.sh - 同步所有 worktree 到最新 main</text>
+
+    <text x="40" y="110" font-size="11" fill="#A5D6A7" font-family="monospace"># 步骤 1: 更新 main</text>
+    <text x="40" y="128" font-size="10" fill="#E8F5E9" font-family="monospace">cd /projects/snsplay-marketplace</text>
+    <text x="40" y="144" font-size="10" fill="#E8F5E9" font-family="monospace">git fetch origin &amp;&amp; git pull origin main</text>
+
+    <text x="40" y="165" font-size="11" fill="#A5D6A7" font-family="monospace"># 步骤 2: 同步每个 worktree</text>
+    <text x="40" y="183" font-size="10" fill="#E8F5E9" font-family="monospace">for wt in .worktrees/*/; do cd "$wt" &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main &amp;&amp; cd ..; done</text>
+
+    <text x="700" y="110" font-size="12" fill="#FF9800" font-family="monospace"># 步骤 3: 验证状态</text>
+    <text x="700" y="128" font-size="10" fill="#E8F5E9" font-family="monospace">git worktree list</text>
+    <text x="700" y="144" font-size="10" fill="#E8F5E9" font-family="monospace">git branch -vv</text>
+    <text x="700" y="160" font-size="10" fill="#E8F5E9" font-family="monospace">git log --oneline -3 --all --graph</text>
+
+    <text x="700" y="183" font-size="11" fill="#4CAF50" font-family="monospace"># ✅ 所有分支已同步到最新</text>
+  </g>
+
+  <!-- Best Practices -->
+  <g transform="translate(50, 880)">
+    <rect x="0" y="0" width="1300" height="220" rx="10" fill="#FFFDE7" stroke="#FBC02D" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#F57C00">最佳实践清单</text>
+
+    <!-- Column 1 -->
+    <g transform="translate(40, 50)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#2E7D32">每日开始工作前</text>
+      <rect x="0" y="15" width="380" height="80" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ cd /projects/snsplay-marketplace &amp;&amp; git pull origin main</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ cd .worktrees/feature-A &amp;&amp; git rebase origin/main</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ cd .worktrees/feature-B &amp;&amp; git rebase origin/main</text>
+      <text x="15" y="89" font-size="11" fill="#333">☐ 运行测试确保基线正常</text>
+    </g>
+
+    <!-- Column 2 -->
+    <g transform="translate(460, 50)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#1565C0">功能完成后</text>
+      <rect x="0" y="15" width="380" height="80" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ 在 worktree 中提交所有更改</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ 切换到 main: cd /projects/snsplay-marketplace</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ 合并：git merge feature-X --no-ff</text>
+      <text x="15" y="89" font-size="11" fill="#333">☐ 推送：git push origin main feature-X</text>
+    </g>
+
+    <!-- Column 3 -->
+    <g transform="translate(880, 50)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#7B1FA2">合并后</text>
+      <rect x="0" y="15" width="380" height="80" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ 同步其他 worktree: git rebase origin/main</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ 运行测试验证无回归</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ 清理已完成的 worktree (可选)</text>
+      <text x="15" y="89" font-size="11" fill="#333">☐ 更新任务状态</text>
+    </g>
+
+    <!-- Column 4 -->
+    <g transform="translate(40, 150)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#F57C00">发布到生产</text>
+      <rect x="0" y="15" width="380" height="60" rx="5" fill="#FFE0B2" stroke="#FF9800"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ 累积多个功能后统一发布</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ git tag -a v1.x.0 -m "Release..."</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ git push origin v1.x.0</text>
+    </g>
+
+    <!-- Column 5 -->
+    <g transform="translate(460, 150)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#C62828">热修复后</text>
+      <rect x="0" y="15" width="380" height="60" rx="5" fill="#FFEBEE" stroke="#F44336"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ 必须同步回 main: git merge hotfix/*</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ 所有 worktree rebase 获取热修复</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ git tag -a v1.x.1 标记热修复版本</text>
+    </g>
+
+    <!-- Column 6 -->
+    <g transform="translate(880, 150)">
+      <text x="0" y="0" font-size="14" font-weight="bold" fill="#00BCD4">通用规则</text>
+      <rect x="0" y="15" width="380" height="60" rx="5" fill="#E0F7FA" stroke="#00BCD4"/>
+      <text x="15" y="35" font-size="11" fill="#333">☐ 小步提交，频繁同步</text>
+      <text x="15" y="53" font-size="11" fill="#333">☐ 一次合并一个分支，避免冲突叠加</text>
+      <text x="15" y="71" font-size="11" fill="#333">☐ 有冲突先解决，不要跳过</text>
+    </g>
+  </g>
+
+  <!-- Quick Reference -->
+  <g transform="translate(50, 1120)">
+    <rect x="0" y="0" width="1300" height="60" rx="8" fill="#ECEFF1" stroke="#90A4AE" stroke-width="1"/>
+    <text x="20" y="25" font-size="12" font-weight="bold" fill="#37474F">📚 完整文档：</text>
+    <text x="20" y="45" font-size="11" fill="#546E7A">01-architecture-overview.svg | 02-scenario-single-wt-change.svg | 03-scenario-both-wt-changes.svg</text>
+    <text x="450" y="45" font-size="11" fill="#546E7A">| 04-scenario-main-has-changes.svg | 05-production-sync-hotfix.svg | 06-complete-sync-matrix.svg</text>
+  </g>
+</svg>
