@@ -24,14 +24,25 @@ fi
 
 ---
 
-## 步骤 2: 验证版本参数
+## 步骤 2: 计算版本号
 
 ```bash
 version="${1:-}"
+
 if [[ -z "$version" ]]; then
-  echo "用法: sns-workflow publish <version>"
-  echo "示例: sns-workflow publish v1.1.0"
-  exit 1
+  # 自动计算: 取最新 tag + 1 patch
+  latest_tag=$(git tag -l --sort=-version:refname | head -1)
+  if [[ -z "$latest_tag" ]]; then
+    version="v0.0.0"
+  else
+    # 提取版本组件
+    major=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f1)
+    minor=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f2)
+    patch=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f3)
+    new_patch=$((patch + 1))
+    version="v${major}.${minor}.${new_patch}"
+  fi
+  echo "自动计算版本号: $latest_tag → $version"
 fi
 
 if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
