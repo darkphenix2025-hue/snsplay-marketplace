@@ -13,6 +13,7 @@ allowed-tools: Bash
 
 | 分支类型 | PR 目标 | merge 后动作 |
 |---------|---------|-------------|
+| `main` | - | 直接 push，无 PR/merge |
 | `worktree-NNN` | main | hard reset 到最新 origin/main |
 | `feature/*` | main | 删除 feature 分支 → 回到 worktree-NNN |
 | `hotfix/*` | product | 打 tag + 创建 product→main 同步 PR |
@@ -66,6 +67,16 @@ echo "已推送到远端: $current_branch"
 
 ```bash
 case "$current_branch" in
+  main)
+    # 直接在 main 上提交（快速修改场景）
+    echo "检测到 main 分支，直接 push..."
+    git push origin main 2>&1 || {
+      echo "Push 失败，请检查远端权限"
+      exit 1
+    }
+    echo "完成: 已推送到 origin/main"
+    ;;
+
   worktree-*)
     # worktree 是持久化容器，不删除远端分支
     echo "检测到 worktree 分支，创建 PR 到 main..."
