@@ -1,13 +1,13 @@
 ---
 name: sns-workflow:publish
-description: 发布到生产线 —— 从 main 打 tag。可选合并到 product 分支。
+description: 发布到生产线 —— 基于 release 分支打 tag，或从 main 快速发布。
 user-invocable: true
 allowed-tools: Bash
 ---
 
 # 发布到生产线技能
 
-从 main 打 tag 并推送到远端。如果 product 分支存在则自动合并。
+从 release 分支打 tag 完成上线；若无 release 版本，则从 main 快速发布（patch+1）。
 
 ---
 
@@ -24,41 +24,50 @@ fi
 
 ---
 
-## 步骤 2: 计算版本号
+## 步骤 2: 检测 release 版本
 
 ```bash
-version="${1:-}"
+release_branch=$(git branch --list 'release/*' | sed 's/^[* ]* //' | tail -1)
 
-if [[ -z "$version" ]]; then
-  # 自动计算: 取最新 tag + 1 patch
-  latest_tag=$(git tag -l --sort=-version:refname | head -1)
-  if [[ -z "$latest_tag" ]]; then
-    version="v0.0.0"
-  else
-    # 提取版本组件
-    major=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f1)
-    minor=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f2)
-    patch=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f3)
-    new_patch=$((patch + 1))
-    version="v${major}.${minor}.${new_patch}"
+if [[ -n "$release_branch" ]]; then
+  version=$(echo "$release_branch" | sed 's/^release\///')
+
+  if ! sns_validate_version "$version" 2>/dev/null; then
+    echo "错误: release 分支版本号格式无效: $version"
+    exit 1
   fi
-  echo "自动计算版本号: $latest_tag → $version"
-fi
 
-if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "错误: 版本号格式必须为 v<major>.<minor>.<patch>"
-  exit 1
+  echo "检测到 release 分支: $release_branch"
+  echo "发布版本: $version"
+
+  if git tag -l "$version" | grep -q "$version"; then
+    echo "错误: tag $version 已存在，请勿重复发布"
+    exit 1
+  fi
 fi
 ```
 
 ---
 
-## 步骤 3: 检查 tag 冲突
+## 步骤 3: 计算版本号（无 release 时）
 
 ```bash
-if git tag -l "$version" | grep -q "$version"; then
-  echo "错误: tag $version 已存在，请勿重复发布"
-  exit 1
+if [[ -z "$version" ]]; then
+  source .sns-workflow/scripts/version.sh
+
+  latest_tag=$(sns_latest_tag)
+  version=$(sns_bump_version "$latest_tag" minor)
+  echo "无 release 版本，自动计算: $latest_tag → $version"
+
+  if ! sns_validate_version "$version"; then
+    echo "错误: 版本号格式必须为 v<major>.<minor>.<patch>"
+    exit 1
+  fi
+
+  if git tag -l "$version" | grep -q "$version"; then
+    echo "错误: tag $version 已存在，请勿重复发布"
+    exit 1
+  fi
 fi
 ```
 
@@ -67,33 +76,34 @@ fi
 ## 步骤 4: 打 tag
 
 ```bash
-git tag -a "$version" -m "Release $version"
-git push origin "$version"
-echo "已打 tag: $version"
-```
+git fetch origin
 
----
+if [[ -n "$release_branch" ]]; then
+  # 基于 release 分支打 tag
+  git checkout "$release_branch"
+  git pull origin "$release_branch" 2>/dev/null || true
+  git tag -a "$version" -m "Release $version"
+  echo "已在 $release_branch 上打 tag: $version"
 
-## 步骤 5: 合并到 product（可选）
-
-```bash
-if git branch -r | grep -q "origin/product"; then
-  git checkout product
-  git pull origin product
-  git merge main --no-edit
-  git push origin product
-  echo "已合并到 product 分支"
+  echo "合并到 main..."
+  git checkout main
+  git merge "$release_branch" --no-edit
+  echo "已合并到 main"
 else
-  echo "远端无 product 分支，跳过合并"
+  # 从 main 快速发布
+  git tag -a "$version" -m "Release $version"
+  echo "已在 main 上打 tag: $version"
 fi
 ```
 
 ---
 
-## 步骤 6: 回到 main
+## 步骤 5: 推送
 
 ```bash
-git checkout main
+git push origin "$version"
+git push origin main 2>/dev/null || true
+
 echo ""
 echo "=== 发布完成 ==="
 echo "版本: $version"

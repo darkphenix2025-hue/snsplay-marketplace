@@ -23,26 +23,19 @@ fi
 
 ---
 
-## 步骤 2: 验证版本参数
+## 步骤 2: 版本参数处理
 
 ```bash
+source .sns-workflow/scripts/version.sh
+
 version="${1:-}"
 if [[ -z "$version" ]]; then
-  # 自动计算: 从 v1.0.0 → v1.0.1
-  latest_tag=$(git tag -l --sort=-version:refname | head -1)
-  if [[ -z "$latest_tag" ]]; then
-    version="v0.0.1"
-  else
-    major=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f1)
-    minor=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f2)
-    patch=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f3)
-    new_patch=$((patch + 1))
-    version="v${major}.${minor}.${new_patch}"
-  fi
+  latest_tag=$(sns_latest_tag)
+  version=$(sns_bump_version "$latest_tag" patch)
   echo "自动计算版本号: $latest_tag → $version"
 fi
 
-if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if ! sns_validate_version "$version"; then
   echo "错误: 版本号格式必须为 v<major>.<minor>.<patch>"
   exit 1
 fi

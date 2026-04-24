@@ -16,7 +16,6 @@ allowed-tools: Bash
 ```bash
 current_branch=$(git branch --show-current)
 
-# 验证 main 分支或 release 分支
 if [[ "$current_branch" == "main" ]]; then
   mode="create"
 elif [[ "$current_branch" =~ ^release/ ]]; then
@@ -26,7 +25,6 @@ else
   exit 1
 fi
 
-# 确保本地与远程同步
 git fetch origin main
 ```
 
@@ -35,25 +33,18 @@ git fetch origin main
 ## 步骤 2: 版本参数处理
 
 ```bash
+source .sns-workflow/scripts/version.sh
+
 version="${1:-}"
 
 if [[ "$mode" == "create" ]]; then
-  # 创建模式: 需要版本号
   if [[ -z "$version" ]]; then
-    # 自动计算: 取最新 tag + 1 minor
-    latest_tag=$(git tag -l --sort=-version:refname | head -1)
-    if [[ -z "$latest_tag" ]]; then
-      version="v0.1.0"
-    else
-      major=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f1)
-      minor=$(echo "$latest_tag" | sed 's/^v//' | cut -d. -f2)
-      new_minor=$((minor + 1))
-      version="v${major}.${new_minor}.0"
-    fi
+    latest_tag=$(sns_latest_tag)
+    version=$(sns_bump_version "$latest_tag" minor)
     echo "自动计算版本号: $latest_tag → $version"
   fi
 
-  if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  if ! sns_validate_version "$version"; then
     echo "错误: 版本号格式必须为 v<major>.<minor>.<patch>"
     exit 1
   fi
@@ -61,33 +52,20 @@ if [[ "$mode" == "create" ]]; then
   git checkout -b "release/$version"
   echo "已创建 release/$version 分支"
 else
-  # 迭代模式: 自动递增 patch 版本
-  version=$(echo "$current_branch" | sed 's/^release\///')
-  if [[ -z "$version" ]]; then
-    echo "错误: 无法从分支名提取版本号"
-    exit 1
-  fi
+  current_version=$(echo "$current_branch" | sed 's/^release\///')
 
   if [[ -n "$1" ]]; then
-    # 用户指定了新版本号
     version="$1"
-    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if ! sns_validate_version "$version"; then
       echo "错误: 版本号格式必须为 v<major>.<minor>.<patch>"
       exit 1
     fi
   else
-    # 自动递增 patch
-    major=$(echo "$version" | sed 's/^v//' | cut -d. -f1)
-    minor=$(echo "$version" | sed 's/^v//' | cut -d. -f2)
-    patch=$(echo "$version" | sed 's/^v//' | cut -d. -f3)
-    new_patch=$((patch + 1))
-    new_version="v${major}.${minor}.${new_patch}"
-    echo "迭代版本: $version → $new_version"
-    version="$new_version"
+    version=$(sns_bump_version "$current_version" patch)
+    echo "迭代版本: $current_version → $version"
   fi
 
-  # 重命名分支
-  git branch -m "release/$current_branch" "release/$version" 2>/dev/null || true
+  git branch -m "release/$current_version" "release/$version" 2>/dev/null || true
   echo "已更新为 release/$version"
 fi
 ```
