@@ -124,16 +124,17 @@ case "$current_branch" in
       exit 1
     fi
 
-    echo "检测到 hotfix 分支，创建 PR 到 product..."
-    gh pr create --base product --head "$current_branch" \
-      --title "hotfix: $version → product" \
+    echo "检测到 hotfix 分支，创建 PR 到 main..."
+    gh pr create --base main --head "$current_branch" \
+      --title "hotfix: $version → main" \
       --body "Hotfix PR for version $version"
 
     gh pr merge --squash --delete-branch
 
-    echo "合并完成，打 tag 并同步到 main..."
-    git checkout product
-    git pull origin product
+    echo "合并完成，在 main 上打 tag..."
+    # 拉取最新 main 并打 tag
+    git fetch origin main
+    git reset --hard origin/main
     if git tag -l "$version" | grep -q "$version"; then
       echo "警告: tag $version 已存在，跳过打 tag"
     else
@@ -142,11 +143,7 @@ case "$current_branch" in
       echo "已打 tag: $version"
     fi
 
-    gh pr create --base main --head product \
-      --title "chore: product→main sync ($version)" \
-      --body "同步 hotfix $version 到 main"
-
-    echo "完成: hotfix $version 已合并到 product 并同步到 main"
+    echo "完成: hotfix $version 已合并到 main"
     ;;
 
   *)

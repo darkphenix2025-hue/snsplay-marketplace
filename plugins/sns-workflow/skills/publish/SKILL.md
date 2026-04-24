@@ -1,13 +1,13 @@
 ---
 name: sns-workflow:publish
-description: 发布到生产线 —— 从 main 打 tag 并合并到 product 分支。
+description: 发布到生产线 —— 从 main 打 tag。可选合并到 product 分支。
 user-invocable: true
 allowed-tools: Bash
 ---
 
 # 发布到生产线技能
 
-将 release 版本发布到 product 生产分支，并打 tag。
+从 main 打 tag 并推送到远端。如果 product 分支存在则自动合并。
 
 ---
 
@@ -74,14 +74,18 @@ echo "已打 tag: $version"
 
 ---
 
-## 步骤 5: 合并到 product
+## 步骤 5: 合并到 product（可选）
 
 ```bash
-git checkout product
-git pull origin product
-git merge main --no-edit
-git push origin product
-echo "已合并到 product 分支"
+if git branch -r | grep -q "origin/product"; then
+  git checkout product
+  git pull origin product
+  git merge main --no-edit
+  git push origin product
+  echo "已合并到 product 分支"
+else
+  echo "远端无 product 分支，跳过合并"
+fi
 ```
 
 ---
@@ -94,5 +98,4 @@ echo ""
 echo "=== 发布完成 ==="
 echo "版本: $version"
 echo "tag: 已推送到远端"
-echo "product: 已同步最新 main"
 ```
