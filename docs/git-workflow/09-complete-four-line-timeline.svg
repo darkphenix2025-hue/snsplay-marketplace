@@ -1,0 +1,135 @@
+<svg viewBox="0 0 1400 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowFull" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#333">完整四线关系时序图：main / production / wt1 / wt2</text>
+  <text x="700" y="65" text-anchor="middle" font-size="14" fill="#666">发布线与开发线的完整交互流程</text>
+
+  <!-- Main diagram -->
+  <g transform="translate(50, 90)">
+    <!-- Lifelines -->
+    <line x1="150" y1="50" x2="150" y2="650" stroke="#4CAF50" stroke-width="4" stroke-dasharray="8,4"/>
+    <line x1="450" y1="50" x2="450" y2="650" stroke="#FF9800" stroke-width="4" stroke-dasharray="8,4"/>
+    <line x1="850" y1="50" x2="850" y2="650" stroke="#2196F3" stroke-width="3" stroke-dasharray="6,3"/>
+    <line x1="1150" y1="50" x2="1150" y2="650" stroke="#9C27B0" stroke-width="3" stroke-dasharray="6,3"/>
+
+    <!-- Lifeline headers -->
+    <rect x="90" y="40" width="120" height="35" rx="5" fill="#4CAF50" stroke="#2E7D32"/>
+    <text x="150" y="63" text-anchor="middle" font-size="16" font-weight="bold" fill="white">main</text>
+
+    <rect x="370" y="40" width="160" height="35" rx="5" fill="#FF9800" stroke="#F57C00"/>
+    <text x="450" y="63" text-anchor="middle" font-size="16" font-weight="bold" fill="white">production</text>
+
+    <rect x="780" y="40" width="140" height="35" rx="5" fill="#2196F3" stroke="#1565C0"/>
+    <text x="850" y="63" text-anchor="middle" font-size="16" font-weight="bold" fill="white">wt-1</text>
+
+    <rect x="1080" y="40" width="140" height="35" rx="5" fill="#9C27B0" stroke="#7B1FA2"/>
+    <text x="1150" y="63" text-anchor="middle" font-size="16" font-weight="bold" fill="white">wt-2</text>
+
+    <!-- Group labels -->
+    <rect x="20" y="100" width="280" height="50" rx="5" fill="#E8F5E9" stroke="#4CAF50" stroke-width="2"/>
+    <text x="160" y="120" text-anchor="middle" font-size="14" font-weight="bold" fill="#2E7D32">发布线</text>
+    <text x="160" y="140" text-anchor="middle" font-size="11" fill="#333">(main ↔ production)</text>
+
+    <rect x="20" y="350" width="280" height="50" rx="5" fill="#E3F2FD" stroke="#2196F3" stroke-width="2"/>
+    <text x="160" y="370" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565C0">开发线</text>
+    <text x="160" y="390" text-anchor="middle" font-size="11" fill="#333">(wt1/wt2 ↔ main)</text>
+
+    <!-- Timeline events -->
+    <g transform="translate(0, 100)">
+      <!-- T0: Initial Sync -->
+      <circle cx="150" cy="30" r="10" fill="#4CAF50"/>
+      <text x="150" y="35" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="450" cy="30" r="10" fill="#FF9800"/>
+      <text x="450" y="35" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="850" cy="30" r="10" fill="#2196F3"/>
+      <text x="850" y="35" text-anchor="middle" font-size="10" fill="white">A</text>
+      <circle cx="1150" cy="30" r="10" fill="#9C27B0"/>
+      <text x="1150" y="35" text-anchor="middle" font-size="10" fill="white">A</text>
+      <text x="650" y="35" text-anchor="middle" font-size="12" fill="#666">T0: 初始同步 (v1.0.0)</text>
+
+      <!-- T1: wt-1 completes -->
+      <circle cx="850" cy="100" r="12" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+      <text x="850" y="105" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="930" y="105" font-size="11" fill="#1565C0">← feature-A 完成</text>
+      <path d="M 850 115 L 850 130 L 150 130 L 150 145" stroke="#2E7D32" stroke-width="2" marker-end="url(#arrowFull)"/>
+      <text x="500" y="135" text-anchor="middle" font-size="11" fill="#2E7D32">merge</text>
+
+      <!-- T2: main merges wt-1 -->
+      <circle cx="150" cy="155" r="12" fill="#2E7D32"/>
+      <text x="150" y="160" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="230" y="160" font-size="11" fill="#2E7D32">← main 已合并</text>
+      <rect x="500" y="145" width="250" height="30" rx="5" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="625" y="163" text-anchor="middle" font-size="10" fill="#F57C00" font-family="monospace">git merge wt-1</text>
+
+      <!-- T3: Release to production -->
+      <path d="M 150 170 L 150 190 L 450 190 L 450 205" stroke="#FF9800" stroke-width="2" marker-end="url(#arrowFull)"/>
+      <text x="300" y="195" text-anchor="middle" font-size="11" fill="#F57C00">git tag -a v1.1.0</text>
+      <circle cx="450" cy="215" r="12" fill="#F57C00"/>
+      <text x="450" y="220" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <text x="530" y="220" font-size="11" fill="#F57C00">← v1.1.0 已发布</text>
+
+      <!-- T4: wt-2 completes -->
+      <circle cx="1150" cy="280" r="12" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="1150" y="285" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <text x="1230" y="285" font-size="11" fill="#7B1FA2">← feature-B 完成</text>
+      <line x1="1150" y1="30" x2="1150" y2="280" stroke="#9C27B0" stroke-width="3"/>
+
+      <!-- T5: main merges wt-2 -->
+      <path d="M 1150 295 L 1150 315 L 150 315 L 150 330" stroke="#2E7D32" stroke-width="2" marker-end="url(#arrowFull)"/>
+      <text x="650" y="320" text-anchor="middle" font-size="11" fill="#2E7D32">merge (串行)</text>
+      <circle cx="150" cy="340" r="12" fill="#2E7D32"/>
+      <text x="150" y="345" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <circle cx="180" cy="340" r="12" fill="#2E7D32"/>
+      <text x="180" y="345" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <text x="260" y="345" font-size="11" fill="#2E7D32">← main = B1 + B2</text>
+
+      <!-- T6: Production hotfix -->
+      <circle cx="450" cy="400" r="12" fill="#F44336" stroke="#C62828" stroke-width="2"/>
+      <text x="450" y="405" text-anchor="middle" font-size="10" fill="white">H1</text>
+      <text x="530" y="405" font-size="11" fill="#F44336">← ⚠️ 生产 bug 发现</text>
+      <rect x="550" y="390" width="200" height="30" rx="5" fill="#FFCDD2" stroke="#F44336"/>
+      <text x="650" y="408" text-anchor="middle" font-size="10" fill="#C62828" font-family="monospace">hotfix/bug-1</text>
+
+      <!-- T7: Hotfix sync to main -->
+      <path d="M 450 415 L 450 435 L 150 435 L 150 450" stroke="#C62828" stroke-width="2" marker-end="url(#arrowFull)"/>
+      <text x="300" y="440" text-anchor="middle" font-size="11" fill="#C62828" font-weight="bold">⚠️ 必须同步!</text>
+      <circle cx="150" cy="460" r="10" fill="#4CAF50"/>
+      <text x="150" y="465" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <circle cx="175" cy="460" r="10" fill="#4CAF50"/>
+      <text x="175" y="465" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <circle cx="200" cy="460" r="12" fill="#F44336"/>
+      <text x="200" y="465" text-anchor="middle" font-size="9" fill="white">H1</text>
+      <text x="280" y="465" font-size="11" fill="#C62828">← main = B1+B2+H1</text>
+
+      <!-- T8: Release with hotfix -->
+      <path d="M 150 475 L 150 495 L 450 495 L 450 510" stroke="#FF9800" stroke-width="2" marker-end="url(#arrowFull)"/>
+      <text x="300" y="500" text-anchor="middle" font-size="11" fill="#F57C00">git tag -a v1.1.1</text>
+      <circle cx="450" cy="520" r="12" fill="#F57C00"/>
+      <text x="450" y="525" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <circle cx="475" cy="520" r="12" fill="#F57C00"/>
+      <text x="475" y="525" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <circle cx="500" cy="520" r="12" fill="#F57C00"/>
+      <text x="500" y="525" text-anchor="middle" font-size="9" fill="white">H1</text>
+      <text x="580" y="525" font-size="11" fill="#F57C00">← v1.1.1 发布</text>
+
+      <!-- T9: wt sync -->
+      <rect x="100" y="550" width="1200" height="80" rx="8" fill="#263238" stroke="#546E7A"/>
+      <text x="700" y="570" text-anchor="middle" font-size="14" font-weight="bold" fill="#80CBC4">T9: 所有 worktree 同步到最新 main</text>
+      <text x="150" y="595" text-anchor="middle" font-size="10" fill="#A5D6A7" font-family="monospace">wt-1: git rebase origin/main</text>
+      <text x="450" y="595" text-anchor="middle" font-size="10" fill="#A5D6A7" font-family="monospace">wt-2: git rebase origin/main</text>
+      <text x="750" y="595" text-anchor="middle" font-size="10" fill="#A5D6A7" font-family="monospace"># 获取 H1 热修复</text>
+      <text x="1000" y="595" text-anchor="middle" font-size="10" fill="#A5D6A7" font-family="monospace">git worktree list</text>
+      <text x="1200" y="595" text-anchor="middle" font-size="10" fill="#A5D6A7" font-family="monospace"># 验证状态</text>
+    </g>
+
+    <!-- Final state -->
+    <rect x="50" y="670" width="1300" height="50" rx="8" fill="#C8E6C9" stroke="#4CAF50"/>
+    <text x="700" y="690" text-anchor="middle" font-size="14" font-weight="bold" fill="#2E7D32">✅ 最终状态：发布线和开发线都同步 (v1.1.1)</text>
+    <text x="700" y="710" text-anchor="middle" font-size="11" fill="#2E7D32">main == production (包含 B1+B2+H1)，wt1/wt2 已 rebase 到最新</text>
+  </g>
+</svg>

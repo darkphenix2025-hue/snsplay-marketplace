@@ -18,6 +18,7 @@ function presetsMixin() {
       key: '', type: 'subscription', name: '',
       base_url: '', api_key: '', models_str: '', protocol: 'anthropic',
       reasoning_effort_api: '', max_output_tokens: '', timeout_minutes: '',
+      chat_completions_path: '',
       command: '', args_template: '', resume_args_template: '', one_shot_args_template: '',
       supports_resume: false, supports_reasoning_effort: false, reasoning_effort: 'medium', cli_models_str: '',
     },
@@ -47,6 +48,7 @@ function presetsMixin() {
           protocol: this.newPreset.protocol || 'anthropic',
           reasoning_effort: this.newPreset.protocol === 'openai' && this.newPreset.reasoning_effort_api ? this.newPreset.reasoning_effort_api : undefined,
           max_output_tokens: this.newPreset.protocol === 'openai' && this.newPreset.max_output_tokens ? Number(this.newPreset.max_output_tokens) : undefined,
+          chat_completions_path: this.newPreset.protocol === 'openai' && this.newPreset.chat_completions_path ? this.newPreset.chat_completions_path : undefined,
         };
       } else if (this.newPreset.type === 'subscription') {
         body = { type: 'subscription', name: this.newPreset.name };
@@ -99,11 +101,21 @@ function presetsMixin() {
       this.testing = { ...this.testing, [name]: true };
       this.testResults = { ...this.testResults, [name]: null };
       try {
-        const resp = await fetch(`/api/presets/${encodeURIComponent(name)}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const resp = await fetch(`/api/presets/${encodeURIComponent(name)}/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(120000),
+        });
         if (resp.status === 429) { this.showError('测试频率超限'); return; }
         if (!resp.ok) { const err = await resp.json().catch(() => ({})); this.showError(err.error?.message || '测试失败'); return; }
         this.testResults = { ...this.testResults, [name]: await resp.json() };
-      } catch (e) { this.showError('网络错误'); }
+      } catch (e) {
+        if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+          this.showError('测试超时（服务端响应超过 120 秒）。请检查代理地址是否可达。');
+        } else {
+          this.showError('网络错误');
+        }
+      }
       finally { this.testing = { ...this.testing, [name]: false }; }
     },
 
@@ -121,6 +133,7 @@ function presetsMixin() {
         this.newPreset.protocol = preset.protocol || 'anthropic';
         this.newPreset.reasoning_effort_api = preset.reasoning_effort || '';
         this.newPreset.max_output_tokens = preset.max_output_tokens || '';
+        this.newPreset.chat_completions_path = preset.chat_completions_path || '';
       } else if (preset.type === 'cli') {
         this.newPreset.command = preset.command || ''; this.newPreset.args_template = preset.args_template || '';
         this.newPreset.resume_args_template = preset.resume_args_template || '';
@@ -145,7 +158,14 @@ function presetsMixin() {
       this.formTesting = true; this.formTestResults = null;
       try {
         const body = { type: this.newPreset.type };
-        if (this.newPreset.type === 'api') { body.base_url = this.newPreset.base_url; body.api_key = this.newPreset.api_key; body.models = this.newPreset.models_str.split(',').map(m => m.trim()).filter(Boolean); body.protocol = this.newPreset.protocol || 'anthropic'; if (this.newPreset.protocol === 'openai' && this.newPreset.max_output_tokens) body.max_output_tokens = Number(this.newPreset.max_output_tokens); }
+        if (this.newPreset.type === 'api') {
+          body.base_url = this.newPreset.base_url;
+          body.api_key = this.newPreset.api_key;
+          body.models = this.newPreset.models_str.split(',').map(m => m.trim()).filter(Boolean);
+          body.protocol = this.newPreset.protocol || 'anthropic';
+          if (this.newPreset.protocol === 'openai' && this.newPreset.max_output_tokens) body.max_output_tokens = Number(this.newPreset.max_output_tokens);
+          if (this.newPreset.protocol === 'openai' && this.newPreset.chat_completions_path) body.chat_completions_path = this.newPreset.chat_completions_path;
+        }
         else if (this.newPreset.type === 'cli') { body.command = this.newPreset.command; }
         const resp = await fetch('/api/test-preset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await resp.json();
@@ -156,7 +176,7 @@ function presetsMixin() {
 
     resetNewPreset() {
       this.editingPresetKey = null; this.formTesting = false; this.formTestResults = null;
-      this.newPreset = { key: '', type: 'subscription', name: '', base_url: '', api_key: '', models_str: '', protocol: 'anthropic', reasoning_effort_api: '', max_output_tokens: '', timeout_minutes: '', command: '', args_template: '', resume_args_template: '', one_shot_args_template: '', supports_resume: false, supports_reasoning_effort: false, reasoning_effort: 'medium', cli_models_str: '' };
+      this.newPreset = { key: '', type: 'subscription', name: '', base_url: '', api_key: '', models_str: '', protocol: 'anthropic', reasoning_effort_api: '', max_output_tokens: '', timeout_minutes: '', chat_completions_path: '', command: '', args_template: '', resume_args_template: '', one_shot_args_template: '', supports_resume: false, supports_reasoning_effort: false, reasoning_effort: 'medium', cli_models_str: '' };
     },
 
     // ============================================================

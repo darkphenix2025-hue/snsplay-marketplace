@@ -31,7 +31,7 @@ import { VALID_STAGE_TYPES, MODEL_NAME_REGEX } from '../types/stage-definitions.
 
 // Allowed fields per preset type for field allowlisting (CWE-915)
 const ALLOWED_PRESET_FIELDS: Record<string, Set<string>> = {
-  api: new Set(['type', 'name', 'base_url', 'api_key', 'models', 'timeout_ms', 'protocol', 'reasoning_effort', 'max_output_tokens']),
+  api: new Set(['type', 'name', 'base_url', 'api_key', 'models', 'timeout_ms', 'protocol', 'reasoning_effort', 'max_output_tokens', 'chat_completions_path']),
   subscription: new Set(['type', 'name']),
   cli: new Set(['type', 'name', 'command', 'args_template', 'resume_args_template', 'one_shot_args_template', 'supports_resume', 'supports_reasoning_effort', 'reasoning_effort', 'timeout_ms', 'models']),
 };
@@ -233,14 +233,15 @@ async function testApiModel(baseUrl: string, apiKey: string, model: string): Pro
  * Test an OpenAI-compatible API endpoint by sending a minimal request to /v1/chat/completions.
  * Uses a 30s timeout (increased from 15s to accommodate reasoning models that may be slow).
  */
-async function testOpenAIModel(baseUrl: string, apiKey: string, model: string, maxOutputTokens?: number): Promise<ModelTestResult> {
+async function testOpenAIModel(baseUrl: string, apiKey: string, model: string, maxOutputTokens?: number, chatCompletionsPath?: string): Promise<ModelTestResult> {
   const TIMEOUT_MS = 30_000;
   const startTime = Date.now();
   const effectiveMaxTokens = maxOutputTokens ?? 16384;
+  const endpoint = chatCompletionsPath ?? '/v1/chat/completions';
 
   try {
     const resp = await fetchWithTimeout(
-      `${baseUrl}/v1/chat/completions`,
+      `${baseUrl}${endpoint}`,
       {
         method: 'POST',
         headers: {
@@ -316,7 +317,7 @@ async function handleTestPreset(
     const models = Array.isArray(preset.models) ? preset.models : [];
     const protocol = preset.protocol ?? 'anthropic';
     const testFn = protocol === 'openai'
-      ? (model: string) => testOpenAIModel(preset.base_url, preset.api_key, model, preset.max_output_tokens)
+      ? (model: string) => testOpenAIModel(preset.base_url, preset.api_key, model, preset.max_output_tokens, preset.chat_completions_path)
       : (model: string) => testApiModel(preset.base_url, preset.api_key, model);
     const results = await Promise.allSettled(models.map(testFn));
     const modelResults: ModelTestResult[] = results.map((r, i) =>
@@ -450,8 +451,9 @@ async function handleTestPresetInline(
     }
 
     const maxOutputTokens = typeof body.max_output_tokens === 'number' ? body.max_output_tokens : undefined;
+    const chatCompletionsPath = typeof body.chat_completions_path === 'string' ? body.chat_completions_path : undefined;
     const testFn = protocol === 'openai'
-      ? (model: string) => testOpenAIModel(base_url.trim(), api_key, model.trim(), maxOutputTokens)
+      ? (model: string) => testOpenAIModel(base_url.trim(), api_key, model.trim(), maxOutputTokens, chatCompletionsPath)
       : (model: string) => testApiModel(base_url.trim(), api_key, model.trim());
     const results = await Promise.allSettled((models as string[]).map(testFn));
     const modelResults: ModelTestResult[] = results.map((r, i) =>
@@ -534,18 +536,29 @@ async function startConfigServer(cwd: string, idleTimeoutMinutes: number, port: 
   const webDir = path.join(import.meta.dir, '..', 'web');
 
   const server = Bun.serve({
-    port: port, // Use specified port or 0 for OS-assigned
+    port: port,
+    hostname: '0.0.0.0',
+    idleTimeout: 120, // 120s to accommodate long-running preset tests (up to ~45s for 3 retries × 15s timeout)
 
     fetch(req: Request): Response | Promise<Response> {
       const url = new URL(req.url);
       const pathname = url.pathname;
 
-      // CORS: exact localhost origin only (no wildcard, no reflection) — CWE-346
+      // CORS: allow localhost variants and devtools (chrome-extension://, devtools://, etc.)
       const origin = req.headers.get('Origin');
       const serverOrigin = `http://localhost:${server.port}`;
-      const corsHeaders: Record<string, string> = origin === serverOrigin
+      const allowedOrigins = [
+        serverOrigin,
+        `http://127.0.0.1:${server.port}`,
+        'http://localhost',
+        'http://127.0.0.1',
+        'null', // Allows local file:// URLs and some devtools contexts
+      ];
+      const isAllowedOrigin = origin && (allowedOrigins.includes(origin) || origin.startsWith('chrome-extension://') || origin.startsWith('devtools://'));
+
+      const corsHeaders: Record<string, string> = isAllowedOrigin
         ? {
-          'Access-Control-Allow-Origin': serverOrigin,
+          'Access-Control-Allow-Origin': origin,
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
         }
@@ -553,18 +566,16 @@ async function startConfigServer(cwd: string, idleTimeoutMinutes: number, port: 
 
       // Handle OPTIONS preflight
       if (req.method === 'OPTIONS') {
-        if (origin !== serverOrigin) {
+        if (!isAllowedOrigin) {
           return new Response(null, { status: 403 });
         }
         return new Response(null, { status: 204, headers: corsHeaders });
       }
 
       // CORS enforcement for ALL non-preflight requests — CWE-346.
-      // Reject any request whose Origin header is present but not the exact server
-      // origin. This covers /api/* and any future routes. Requests
+      // Allow requests from localhost variants, devtools contexts, or requests
       // without an Origin header (e.g. direct curl, browser address-bar navigation)
-      // are not cross-origin browser requests and are allowed through.
-      if (origin && origin !== serverOrigin) {
+      if (origin && !isAllowedOrigin) {
         return new Response(
           JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Cross-origin request rejected' } }),
           { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -717,6 +728,57 @@ async function handleApiRequest(
           }, 200, corsHeaders);
         } catch (err) {
           return jsonResponse({ error: { code: 'DISCOVERY_ERROR', message: err instanceof Error ? err.message : 'Unknown error' } }, 500, corsHeaders);
+        }
+      }
+    }
+
+    // --- Local Agents Import routes ---
+    if (pathname === '/api/local-agents/categories') {
+      if (req.method === 'GET') {
+        try {
+          const localAgentsDir = path.join(import.meta.dir, '..', 'system-prompts', 'agents');
+          const categories = fs.readdirSync(localAgentsDir)
+            .filter(name => {
+              const fullPath = path.join(localAgentsDir, name);
+              return fs.statSync(fullPath).isDirectory();
+            });
+          return jsonResponse({ categories }, 200, corsHeaders);
+        } catch (err) {
+          return jsonResponse({ error: { code: 'DISCOVERY_ERROR', message: err instanceof Error ? err.message : 'Unknown error' } }, 500, corsHeaders);
+        }
+      }
+    }
+
+    if (pathname.startsWith('/api/local-agents/')) {
+      const parts = pathname.slice('/api/local-agents/'.length).split('/');
+      const category = decodeURIComponent(parts[0]);
+      const agentFile = parts.length > 1 ? decodeURIComponent(parts[1]) : null;
+
+      const localAgentsDir = path.join(import.meta.dir, '..', 'system-prompts', 'agents');
+
+      if (req.method === 'GET') {
+        try {
+          if (!agentFile) {
+            // List agents in category
+            const categoryDir = path.join(localAgentsDir, category);
+            const agents = fs.readdirSync(categoryDir)
+              .filter(name => name.endsWith('.md'))
+              .map(name => ({
+                name: name.replace('.md', ''),
+                path: path.join(category, name),
+                filePath: path.join(categoryDir, name),
+              }));
+            return jsonResponse({ agents }, 200, corsHeaders);
+          } else {
+            // Get single agent file content
+            const filePath = path.join(localAgentsDir, category, agentFile);
+            const content = fs.readFileSync(filePath, 'utf-8');
+            return new Response(content, {
+              headers: { 'Content-Type': 'text/markdown', ...corsHeaders },
+            });
+          }
+        } catch (err) {
+          return jsonResponse({ error: { code: 'NOT_FOUND', message: err instanceof Error ? err.message : 'Unknown error' } }, 404, corsHeaders);
         }
       }
     }

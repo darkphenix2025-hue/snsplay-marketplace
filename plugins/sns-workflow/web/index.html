@@ -127,6 +127,10 @@
               最大输出 Token <span class="optional-label">(可选，默认 16384)</span>
               <input type="number" x-model="newPreset.max_output_tokens" placeholder="16384" min="1" step="1">
             </label>
+            <label x-show="newPreset.protocol === 'openai'" x-transition>
+              API 路径后缀 <span class="optional-label">(可选，默认/v1/chat/completions，智谱 AI 填/chat/completions)</span>
+              <input type="text" x-model="newPreset.chat_completions_path" placeholder="/chat/completions">
+            </label>
             <label>
               Base URL
               <input type="url" x-model="newPreset.base_url" placeholder="https://openrouter.ai/api" required>
@@ -350,6 +354,10 @@
                     <span class="label">最大输出 Token:</span>
                     <span x-text="preset.max_output_tokens"></span>
                   </div>
+                  <div class="detail-row" x-show="preset.protocol === 'openai' && preset.chat_completions_path">
+                    <span class="label">API 路径后缀:</span>
+                    <span x-text="preset.chat_completions_path"></span>
+                  </div>
                 </div>
               </template>
 
@@ -571,7 +579,10 @@
         <h2>System Prompts</h2>
         <p class="section-description">Built-in prompts are read-only. Create custom prompts via <code>/sns-workflow:create-prompt</code> or import from gallery.</p>
       </div>
-      <button class="btn-secondary" x-on:click="openImportDialog()">Import from Gallery</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-secondary" x-on:click="openLocalImportDialog()">从本地导入</button>
+        <button class="btn-secondary" x-on:click="openImportDialog()">Import from Gallery</button>
+      </div>
     </div>
 
     <template x-if="loadingSystemPrompts">
@@ -788,6 +799,72 @@
         <template x-if="importProgress">
           <div>
             <p class="loading" x-text="importProgress"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Local Import Modal ============ -->
+  <div class="modal-overlay" x-show="showLocalImportDialog" x-transition
+    role="dialog" aria-modal="true" aria-labelledby="local-import-dialog-title"
+    x-on:keydown.escape="closeLocalImportDialog()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="local-import-dialog-title">从本地 agents 目录导入</h3>
+        <button class="modal-close" x-on:click="closeLocalImportDialog()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Step 1: Category selection -->
+        <template x-if="!localImportSelectedCategory && !localImportProgress">
+          <div>
+            <p class="text-muted">选择一个分类来浏览可用的 Agent：</p>
+            <template x-if="localImportLoading">
+              <p class="loading">正在加载分类...</p>
+            </template>
+            <div class="import-category-grid">
+              <template x-for="cat in localImportCategories" x-bind:key="cat.name">
+                <button class="import-category-btn" x-on:click="selectLocalCategory(cat.name)"
+                  x-text="AGENT_CATEGORY_ZH[cat.name] || cat.name"></button>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <!-- Step 2: Agent selection -->
+        <template x-if="localImportSelectedCategory && !localImportProgress">
+          <div>
+            <button class="btn-secondary btn-sm" x-on:click="localImportSelectedCategory = ''; localImportAgents = []">&larr; 返回分类列表</button>
+            <h4 x-text="AGENT_CATEGORY_ZH[localImportSelectedCategory] || localImportSelectedCategory" style="margin: 12px 0 8px; text-transform: capitalize;"></h4>
+            <template x-if="localImportLoading">
+              <p class="loading">正在加载 Agent...</p>
+            </template>
+            <template x-if="!localImportLoading">
+              <div>
+                <template x-for="agent in localImportAgents" x-bind:key="agent.name">
+                  <label class="import-agent-row">
+                    <input type="checkbox" x-model="localImportSelectedAgents[agent.name]">
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                      <strong x-text="translateAgentName(agent.name, localImportSelectedCategory)" style="font-size: 0.85rem;"></strong>
+                      <span class="text-muted" x-text="agent.name" style="font-size: 0.75rem;"></span>
+                    </div>
+                  </label>
+                </template>
+                <div class="form-actions" style="margin-top: 12px;">
+                  <button class="btn-primary" x-on:click="importFromLocalAgents()"
+                    x-bind:disabled="Object.values(localImportSelectedAgents).filter(Boolean).length === 0">
+                    导入选中的 Agent
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Step 3: Progress -->
+        <template x-if="localImportProgress">
+          <div>
+            <p class="loading" x-text="localImportProgress"></p>
           </div>
         </template>
       </div>

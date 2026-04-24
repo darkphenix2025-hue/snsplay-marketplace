@@ -128,6 +128,10 @@ When ready to publish:
 
 **IMPORTANT**: For all web browsing tasks, ALWAYS use the `/gstack` skill with the `/browse` command. NEVER use `mcp__claude-in-chrome__*` tools.
 
+**Project Install**: gstack is installed in `.claude/skills/gstack/` for this project. Teammates and collaborators automatically have access to all gstack skills when working in this repo.
+
+**Troubleshooting**: If gstack skills aren't working, run `cd .claude/skills/gstack && ./setup` to rebuild binaries and register skills.
+
 ### Available Gstack Skills
 
 | Skill | Command | Purpose |

@@ -19,6 +19,8 @@ export interface ApiPreset {
   reasoning_effort?: '' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   /** Maximum output tokens for OpenAI-compatible completions. Only used when protocol is 'openai'. Default: 16384. */
   max_output_tokens?: number;
+  /** Custom chat completions endpoint path. Only used when protocol is 'openai'. Default: '/v1/chat/completions'. Example: '/v4/chat/completions' for Zhipu BIGMODEL. */
+  chat_completions_path?: string;
 }
 
 export interface SubscriptionPreset {

@@ -1,0 +1,249 @@
+<svg viewBox="0 0 1400 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565C0"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7B1FA2"/>
+    </marker>
+    <linearGradient id="mainGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt1Grad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1565C0;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="wt2Grad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#7B1FA2;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#333">场景 2: 主线无变更，两个 Worktree 都有变更</text>
+  <text x="700" y="60" text-anchor="middle" font-size="14" fill="#666">串行合并流程 (先合 wt-1，同步 wt-2，再合 wt-2)</text>
+
+  <!-- Phase 1: Initial State -->
+  <g transform="translate(50, 80)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#333">阶段 1: 初始状态 (两个 worktree 都完成开发)</text>
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#FAFAFA" stroke="#BDBDBD" stroke-width="1"/>
+
+    <!-- Main -->
+    <g transform="translate(20, 20)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="368" y2="17.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="4,2"/>
+      <circle cx="375" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="375" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+    </g>
+
+    <!-- WT1 -->
+    <g transform="translate(20, 55)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#1565C0">wt-1</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <circle cx="25" cy="17.5" r="7" fill="#2196F3"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#2196F3" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B1✓</text>
+      <line x1="229" y1="17.5" x2="368" y2="17.5" stroke="#2196F3" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- WT2 -->
+    <g transform="translate(20, 90)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <circle cx="25" cy="17.5" r="7" fill="#9C27B0"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#9C27B0" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B2✓</text>
+      <line x1="229" y1="17.5" x2="368" y2="17.5" stroke="#9C27B0" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- Phase 1 Note -->
+    <text x="450" y="45" font-size="12" fill="#1565C0">✅ feature-A 完成</text>
+    <text x="450" y="70" font-size="12" fill="#7B1FA2">✅ feature-B 完成</text>
+    <text x="450" y="95" font-size="12" fill="#F57C00">⚠️ 需要串行合并</text>
+  </g>
+
+  <!-- Phase 2: Merge WT1 -->
+  <g transform="translate(50, 240)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#333">阶段 2: 合并 wt-1 到 main</text>
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#E3F2FD" stroke="#2196F3" stroke-width="1"/>
+
+    <!-- Main -->
+    <g transform="translate(20, 20)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="10" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="230" y1="17.5" x2="368" y2="17.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- WT1 -->
+    <g transform="translate(20, 55)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#1565C0">wt-1</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E3F2FD" stroke="#2196F3"/>
+      <circle cx="25" cy="17.5" r="7" fill="#2196F3"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#2196F3" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B1✓</text>
+      <line x1="229" y1="17.5" x2="368" y2="17.5" stroke="#2196F3" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- WT2 -->
+    <g transform="translate(20, 90)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#F3E5F5" stroke="#9C27B0"/>
+      <circle cx="25" cy="17.5" r="7" fill="#9C27B0"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#9C27B0" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B2✓</text>
+      <line x1="229" y1="17.5" x2="368" y2="17.5" stroke="#9C27B0" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- Merge Arrow -->
+    <path d="M 220 72.5 L 220 60 L 220 55" stroke="#1565C0" stroke-width="2" fill="none" marker-end="url(#arrowBlue)"/>
+    <text x="230" y="65" font-size="10" fill="#1565C0">git merge</text>
+
+    <!-- Command -->
+    <text x="450" y="45" font-size="11" fill="#1565C0" font-family="monospace">cd /projects/snsplay-marketplace</text>
+    <text x="450" y="65" font-size="11" fill="#1565C0" font-family="monospace">git merge feature-A --no-ff -m "Merge feature-A"</text>
+    <text x="450" y="85" font-size="11" fill="#1565C0" font-family="monospace">git push origin main feature-A</text>
+    <text x="450" y="110" font-size="11" fill="#F57C00">⚠️ wt-2 现在落后于 main</text>
+  </g>
+
+  <!-- Phase 3: Sync WT2 -->
+  <g transform="translate(50, 400)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#333">阶段 3: 同步 wt-2 到最新 main (rebase)</text>
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#FFF3E0" stroke="#FF9800" stroke-width="1"/>
+
+    <!-- Main -->
+    <g transform="translate(20, 20)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="229" y1="17.5" x2="368" y2="17.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- WT2 Before -->
+    <g transform="translate(20, 55)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2 (before)</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#F3E5F5" stroke="#9C27B0" stroke-dasharray="4,2"/>
+      <circle cx="25" cy="17.5" r="7" fill="#9C27B0"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="200" y2="17.5" stroke="#9C27B0" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <text x="250" y="22" font-size="10" fill="#F57C00">⚠️ 落后 B1</text>
+    </g>
+
+    <!-- WT2 After -->
+    <g transform="translate(20, 90)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2 (after rebase)</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E1BEE7" stroke="#7B1FA2"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="100" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="115" cy="17.5" r="8" fill="#4CAF50"/>
+      <text x="115" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="123" y1="17.5" x2="200" y2="17.5" stroke="#9C27B0" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <text x="250" y="22" font-size="10" fill="#4CAF50">✅ 已同步</text>
+    </g>
+
+    <!-- Command -->
+    <text x="450" y="45" font-size="11" fill="#F57C00" font-family="monospace"># 在 wt-2 中执行</text>
+    <text x="450" y="65" font-size="11" fill="#F57C00" font-family="monospace">cd .worktrees/feature-B</text>
+    <text x="450" y="85" font-size="11" fill="#F57C00" font-family="monospace">git fetch origin</text>
+    <text x="450" y="105" font-size="11" fill="#F57C00" font-family="monospace">git rebase origin/main</text>
+    <text x="450" y="130" font-size="11" fill="#2E7D32">✅ wt-2 现在基于最新 main (包含 B1)</text>
+  </g>
+
+  <!-- Phase 4: Merge WT2 -->
+  <g transform="translate(50, 560)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#333">阶段 4: 合并 wt-2 到 main</text>
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#E8F5E9" stroke="#4CAF50" stroke-width="1"/>
+
+    <!-- Main Final -->
+    <g transform="translate(20, 20)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main (final)</text>
+      <rect x="0" y="0" width="600" height="35" rx="5" fill="#C8E6C9" stroke="#2E7D32"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="100" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="115" cy="17.5" r="8" fill="#2E7D32"/>
+      <text x="115" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="123" y1="17.5" x2="250" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="270" cy="17.5" r="10" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+      <text x="270" y="22" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <line x1="280" y1="17.5" x2="568" y2="17.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="4,2"/>
+      <text x="300" y="22" font-size="10" fill="#2E7D32">✅ 两个功能都已合并</text>
+    </g>
+
+    <!-- WT2 -->
+    <g transform="translate(20, 55)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#7B1FA2">wt-2</text>
+      <rect x="0" y="0" width="400" height="35" rx="5" fill="#E1BEE7" stroke="#7B1FA2"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="100" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="115" cy="17.5" r="8" fill="#4CAF50"/>
+      <text x="115" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="123" y1="17.5" x2="200" y2="17.5" stroke="#9C27B0" stroke-width="2"/>
+      <circle cx="220" cy="17.5" r="9" fill="#7B1FA2" stroke="#4A148C" stroke-width="2"/>
+      <text x="220" y="22" text-anchor="middle" font-size="9" fill="white">B2✓</text>
+    </g>
+
+    <!-- Merge Arrow -->
+    <path d="M 220 72.5 L 220 60 L 270 55" stroke="#7B1FA2" stroke-width="2" fill="none" marker-end="url(#arrowPurple)"/>
+
+    <!-- Command -->
+    <text x="450" y="35" font-size="11" fill="#2E7D32" font-family="monospace"># 切换到 main 合并 wt-2</text>
+    <text x="450" y="55" font-size="11" fill="#2E7D32" font-family="monospace">cd /projects/snsplay-marketplace</text>
+    <text x="450" y="75" font-size="11" fill="#2E7D32" font-family="monospace">git merge feature-B --no-ff -m "Merge feature-B"</text>
+    <text x="450" y="95" font-size="11" fill="#2E7D32" font-family="monospace">git push origin main feature-B</text>
+    <text x="450" y="120" font-size="11" fill="#4CAF50">✅ 完成！所有功能已合并到 main</text>
+  </g>
+
+  <!-- Summary Box -->
+  <g transform="translate(50, 720)">
+    <rect x="0" y="0" width="1300" height="180" rx="10" fill="#263238" stroke="#546E7A" stroke-width="2"/>
+    <text x="650" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#80CBC4">完整命令序列 - 两个 Worktree 都有变更</text>
+
+    <text x="30" y="60" font-size="13" fill="#80CBC4" font-family="monospace"># ========== 第一步：提交 wt-1 ==========</text>
+    <text x="30" y="80" font-size="11" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-A &amp;&amp; git add . &amp;&amp; git commit -m "feat: A complete"</text>
+
+    <text x="30" y="105" font-size="13" fill="#80CBC4" font-family="monospace"># ========== 第二步：合并 wt-1 到 main ==========</text>
+    <text x="30" y="125" font-size="11" fill="#E8F5E9" font-family="monospace">cd /projects/snsplay-marketplace &amp;&amp; git merge feature-A --no-ff -m "Merge feature-A"</text>
+    <text x="30" y="140" font-size="11" fill="#E8F5E9" font-family="monospace">git push origin main feature-A</text>
+
+    <text x="30" y="165" font-size="13" fill="#80CBC4" font-family="monospace"># ========== 第三步：同步 wt-2 到最新 main ==========</text>
+    <text x="30" y="185" font-size="11" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-B &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main</text>
+
+    <text x="30" y="210" font-size="13" fill="#80CBC4" font-family="monospace"># ========== 第四步：提交并合并 wt-2 ==========</text>
+    <text x="30" y="230" font-size="11" fill="#E8F5E9" font-family="monospace">cd .. &amp;&amp; git add . &amp;&amp; git commit -m "feat: B complete"</text>
+    <text x="30" y="245" font-size="11" fill="#E8F5E9" font-family="monospace">git merge feature-B --no-ff -m "Merge feature-B"</text>
+    <text x="30" y="260" font-size="11" fill="#E8F5E9" font-family="monospace">git push origin main feature-B</text>
+
+    <text x="700" y="60" font-size="13" fill="#FF9800" font-family="monospace">⚠️ 关键点：必须先同步 wt-2 再合并！</text>
+    <text x="700" y="85" font-size="11" fill="#BDBDBD" font-family="monospace">否则 wt-2 会缺少 wt-1 的提交，导致后续冲突</text>
+  </g>
+</svg>
