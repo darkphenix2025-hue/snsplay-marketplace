@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:commit-push-pr
-description: 统一提交+推送+PR+合并+清理 —— 自动检测分支类型（worktree/feature/hotfix），执行对应的完整流程。不支持 main 直推。
+description: 统一提交+推送+PR+合并+清理 —— 自动检测分支类型，执行对应的完整流程。main/release 直接提交，worktree/feature/hotfix 走 PR 流程。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -9,16 +9,17 @@ allowed-tools: Bash
 
 自动检测当前分支类型，执行对应的 commit → push → PR → merge → 清理流程。
 
-**四路路由矩阵**:
+**五路路由矩阵**:
 
 | 分支类型 | 动作 | 版本效果 |
 |---------|------|---------|
 | `main` | commit + push（直接提交） | 不产生 tag |
+| `release/x.y.z` | commit + push（rc 迭代修复） | 不产生 tag，由 `/sns-workflow:publish` 打正式 tag |
 | `worktree-NNN` | commit → PR → merge → reset | 不产生 tag |
 | `feature/*` | commit → PR → merge → 删除分支 → 回 worktree | 不产生 tag |
 | `hotfix/x.y.z` | commit → PR → merge → 打 tag → 回流 | 生成新 tag vX.Y.Z |
 
-**不支持 unknown 和 release 分支**。
+**不支持 unknown 分支**。
 
 ---
 
@@ -67,18 +68,12 @@ echo "当前分支: $current_branch (类型: $branch_type)"
 # 不支持 unknown 分支
 if [[ "$branch_type" == "unknown" ]]; then
   echo "错误: 不支持的分支类型: $current_branch"
-  echo "支持的分支: main, worktree-NNN, feature/*, hotfix/*"
+  echo "支持的分支: main, release/*, worktree-NNN, feature/*, hotfix/*"
   exit 1
 fi
 
-# release 分支应使用 publish 命令
-if [[ "$branch_type" == "release" ]]; then
-  echo "错误: release 分支请使用 /sns-workflow:publish 发布"
-  exit 1
-fi
-
-# 检查 gh CLI（main 路径不需要 PR，跳过检查）
-if [[ "$branch_type" != "main" ]]; then
+# 检查 gh CLI（main/release 路径不需要 PR，跳过检查）
+if [[ "$branch_type" != "main" ]] && [[ "$branch_type" != "release" ]]; then
   if ! command -v gh &> /dev/null; then
     echo "错误: gh CLI 未安装"
     exit 1
@@ -102,6 +97,10 @@ fi
 case "$branch_type" in
   main)
     commit_msg="chore: update"
+    ;;
+  release)
+    rel_version=$(echo "$current_branch" | sed 's/^release\///')
+    commit_msg="fix($rel_version): rc update"
     ;;
   worktree)
     commit_msg="chore: $current_branch update"
@@ -145,6 +144,18 @@ case "$branch_type" in
 
     # main 已在步骤 2 commit，步骤 3 push，此处无需额外操作
     echo "已直接推送到 main"
+    ;;
+
+  release)
+    echo ""
+    echo "=== release 路径: rc 迭代修复 ==="
+
+    rel_version=$(echo "$current_branch" | sed 's/^release\///')
+    echo "release/$rel_version 修复已提交并推送"
+    echo "候选版本迭代中（rc.1 → rc.2 → ...）"
+    echo ""
+    echo "测试通过后执行: /sns-workflow:publish"
+    echo "系统将: 打正式 tag vX.Y.Z → 回流 main"
     ;;
 
   worktree)
