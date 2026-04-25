@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:commit-push-pr
-description: 统一提交+推送+PR+合并+清理 —— 自动检测分支类型，执行对应的完整流程。main 直接提交，release 自动打预发布 tag，worktree/feature/hotfix 走 PR 流程。支持 --rc 参数切换 beta→rc 阶段。
+description: 统一提交+推送+PR+合并+清理 —— 自动检测分支类型，执行对应的完整流程。main 直接提交，release 自动打预发布 tag，worktree/feature/hotfix 走 PR 流程。支持 --rc 参数切换 beta→rc 阶段，--backflow 参数回流 main。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -21,6 +21,8 @@ allowed-tools: Bash
 
 **`--rc` 参数**: 在 release 分支上使用时，将 beta 阶段切换到 rc 阶段（如 `v1.5.0-beta.3` → `v1.5.0-rc.1`）。
 
+**`--backflow` 参数**: 在 release 分支上使用时，提交后将 release 合并回 main 并切到 main，保留 release 分支。不产生预发布 tag。
+
 **不支持 unknown 分支**。
 
 ---
@@ -35,10 +37,12 @@ source "$SHELL_DIR/context.sh"
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
 
-# 解析 --rc 参数（仅 release 路径生效）
+# 解析 --rc / --backflow 参数（仅 release 路径生效）
 SHIFT_TO_RC=false
+BACKFLOW=false
 for arg in "$@"; do
   [[ "$arg" == "--rc" ]] && SHIFT_TO_RC=true
+  [[ "$arg" == "--backflow" ]] && BACKFLOW=true
 done
 
 echo "当前分支: $current_branch (类型: $branch_type)"
@@ -140,55 +144,75 @@ case "$branch_type" in
     ;;
 
   release)
-    echo ""
-    echo "=== release 路径: commit + 预发布 tag ==="
+    if $BACKFLOW; then
+      echo ""
+      echo "=== release 路径: commit + 回流 main ==="
 
-    # 从分支名提取正式版本号: release/1.5.0 → v1.5.0
-    rel_version=$(echo "$current_branch" | sed 's/^release\///')
-    base_tag="v$rel_version"
+      # 回流 main：合并 release 到 main，切到 main，保留 release 分支
+      git checkout main
+      git pull origin main
+      git merge "$current_branch" --no-edit
+      git push origin main
 
-    # 校验分支名版本号是正式格式（不含 beta/rc）
-    if sns_is_prerelease "$base_tag"; then
-      echo "错误: release 分支名不应包含预发布后缀: $rel_version"
-      echo "期望格式: release/x.y.z (如 release/1.5.0)"
-      exit 1
-    fi
-
-    # 计算下一个预发布 tag
-    if $SHIFT_TO_RC; then
-      next_tag=$(sns_bump_prerelease "$base_tag" --rc) || {
-        echo "错误: $next_tag"
-        exit 1
-      }
+      echo "已回流 main"
+      echo "release 分支 $current_branch 已保留"
+      echo ""
+      echo "后续操作:"
+      echo "  git checkout $current_branch        → 回到 release 继续"
+      echo "  /sns-workflow:publish               → 正式发布（在 release 分支上执行）"
     else
-      next_tag=$(sns_bump_prerelease "$base_tag")
-    fi
-
-    # 校验 tag 不重复
-    if sns_tag_exists "$next_tag"; then
-      echo "错误: tag $next_tag 已存在"
-      exit 1
-    fi
-
-    # 打预发布 tag 并推送
-    git tag -a "$next_tag" -m "Prerelease $next_tag"
-    git push origin "$next_tag"
-    echo "已创建预发布 tag: $next_tag"
-
-    # 提示当前阶段和后续操作
-    pre=$(sns_parse_version "$next_tag" prerelease)
-    if [[ "$pre" =~ ^beta ]]; then
-      echo "当前阶段: beta 测试"
       echo ""
-      echo "后续操作:"
-      echo "  /sns-workflow:commit-push-pr       → 下一个 beta 版本"
-      echo "  /sns-workflow:commit-push-pr --rc   → 进入 rc 候选阶段"
-    elif [[ "$pre" =~ ^rc ]]; then
-      echo "当前阶段: rc 候选"
-      echo ""
-      echo "后续操作:"
-      echo "  /sns-workflow:commit-push-pr       → 下一个 rc 版本"
-      echo "  /sns-workflow:publish              → 正式发布 $base_tag"
+      echo "=== release 路径: commit + 预发布 tag ==="
+
+      # 从分支名提取正式版本号: release/1.5.0 → v1.5.0
+      rel_version=$(echo "$current_branch" | sed 's/^release\///')
+      base_tag="v$rel_version"
+
+      # 校验分支名版本号是正式格式（不含 beta/rc）
+      if sns_is_prerelease "$base_tag"; then
+        echo "错误: release 分支名不应包含预发布后缀: $rel_version"
+        echo "期望格式: release/x.y.z (如 release/1.5.0)"
+        exit 1
+      fi
+
+      # 计算下一个预发布 tag
+      if $SHIFT_TO_RC; then
+        next_tag=$(sns_bump_prerelease "$base_tag" --rc) || {
+          echo "错误: $next_tag"
+          exit 1
+        }
+      else
+        next_tag=$(sns_bump_prerelease "$base_tag")
+      fi
+
+      # 校验 tag 不重复
+      if sns_tag_exists "$next_tag"; then
+        echo "错误: tag $next_tag 已存在"
+        exit 1
+      fi
+
+      # 打预发布 tag 并推送
+      git tag -a "$next_tag" -m "Prerelease $next_tag"
+      git push origin "$next_tag"
+      echo "已创建预发布 tag: $next_tag"
+
+      # 提示当前阶段和后续操作
+      pre=$(sns_parse_version "$next_tag" prerelease)
+      if [[ "$pre" =~ ^beta ]]; then
+        echo "当前阶段: beta 测试"
+        echo ""
+        echo "后续操作:"
+        echo "  /sns-workflow:commit-push-pr       → 下一个 beta 版本"
+        echo "  /sns-workflow:commit-push-pr --rc   → 进入 rc 候选阶段"
+        echo "  /sns-workflow:commit-push-pr --backflow → 回流 main"
+      elif [[ "$pre" =~ ^rc ]]; then
+        echo "当前阶段: rc 候选"
+        echo ""
+        echo "后续操作:"
+        echo "  /sns-workflow:commit-push-pr       → 下一个 rc 版本"
+        echo "  /sns-workflow:publish              → 正式发布 $base_tag"
+        echo "  /sns-workflow:commit-push-pr --backflow → 回流 main"
+      fi
     fi
     ;;
 
