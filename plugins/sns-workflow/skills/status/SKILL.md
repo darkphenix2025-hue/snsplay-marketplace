@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:status
-description: 项目状态报告 —— 显示当前项目版本、分支、worktree 和 CI 状态。
+description: 项目状态报告 —— 显示当前项目版本、分支、worktree 状态和活动 release。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -32,6 +32,7 @@ echo "最新提交: $latest_commit"
 
 ```bash
 source .sns-workflow/scripts/version.sh 2>/dev/null || echo "警告: version.sh 不存在，跳过版本信息"
+source .sns-workflow/scripts/context.sh 2>/dev/null || echo "警告: context.sh 不存在，跳过上下文信息"
 
 echo ""
 echo "=== 版本状态 ==="
@@ -41,12 +42,11 @@ latest_tag=$(echo "$all_tags" | head -1)
 tag_count=$(echo "$all_tags" | grep -c . 2>/dev/null || echo "0")
 
 if [[ -z "$latest_tag" ]]; then
-  echo "当前版本: 无 tag（未发布）"
+  echo "线上版本: 无 tag（未发布）"
 else
-  echo "当前版本: $latest_tag"
+  echo "线上版本: $latest_tag"
   echo "总版本数: $tag_count"
 
-  # 显示最近 5 个版本
   echo ""
   echo "最近版本:"
   echo "$all_tags" | head -5 | while read tag; do
@@ -56,12 +56,11 @@ else
   done
 fi
 
-# 当前距最新版本的提交数
 if [[ -n "$latest_tag" ]]; then
   ahead=$(git rev-list --count "$latest_tag"..HEAD 2>/dev/null || echo "0")
   if [[ "$ahead" -gt 0 ]]; then
     echo ""
-    echo "⬆ 领先 $latest_tag 共 $ahead 个提交"
+    echo "⬆ 领先 $latest_tag 共 $ahead 个提交（未发布）"
   else
     echo ""
     echo "已是最新 tagged 版本"
@@ -71,7 +70,29 @@ fi
 
 ---
 
-## 步骤 3: 工作目录状态
+## 步骤 3: 活动 Release 分支
+
+```bash
+echo ""
+echo "=== 活动 Release ==="
+
+release_branches=$(sns_active_release_branches 2>/dev/null)
+
+if [[ -z "$release_branches" ]]; then
+  echo "无活动 release 分支"
+else
+  echo "$release_branches" | while read rb; do
+    rb_version=$(echo "$rb" | sed 's/^release\///')
+    rb_date=$(git log -1 --format="%cr" "$rb" 2>/dev/null || echo "")
+    rb_ahead=$(git rev-list --count "origin/main..$rb" 2>/dev/null || echo "0")
+    echo "  $rb (候选: $rb_version, $rb_date, 领先 main $rb_ahead 提交)"
+  done
+fi
+```
+
+---
+
+## 步骤 4: 工作目录状态
 
 ```bash
 echo ""
@@ -90,29 +111,32 @@ fi
 
 ---
 
-## 步骤 4: 分支状态
+## 步骤 5: 分支状态
 
 ```bash
 echo ""
 echo "=== 分支状态 ==="
 
-echo "当前分支: $current_branch"
+branch_type=$(sns_branch_type 2>/dev/null || echo "unknown")
+echo "当前分支: $current_branch ($branch_type)"
 echo ""
 
-# 本地分支
 local_branches=$(git branch --format='%(refname:short)')
 local_count=$(echo "$local_branches" | grep -c . || echo "0")
 echo "本地分支: $local_count"
 
-# 列出活跃工作分支（不含 main）
-echo "$local_branches" | grep -v "^main$" | while read branch; do
-  marker=""
-  [[ "$branch" == "$current_branch" ]] && marker=" ← 当前"
-  branch_age=$(git log -1 --format="%cr" "$branch" 2>/dev/null || echo "")
-  echo "  $branch ($branch_age)$marker"
-done
+other_branches=$(echo "$local_branches" | grep -v "^main$")
+if [[ -n "$other_branches" ]]; then
+  echo "$other_branches" | while read branch; do
+    marker=""
+    [[ "$branch" == "$current_branch" ]] && marker=" ← 当前"
+    branch_age=$(git log -1 --format="%cr" "$branch" 2>/dev/null || echo "")
+    echo "  $branch ($branch_age)$marker"
+  done
+else
+  echo "  (仅 main)"
+fi
 
-# 远端分支
 echo ""
 remote_branches=$(git branch -r --format='%(refname:short)' 2>/dev/null | grep -v HEAD)
 if [[ -n "$remote_branches" ]]; then
@@ -122,46 +146,63 @@ if [[ -n "$remote_branches" ]]; then
     branch_age=$(git log -1 --format="%cr" "$branch" 2>/dev/null || echo "")
     echo "  $branch ($branch_age)"
   done
+else
+  echo "远端分支: 0 (仅 origin/main)"
 fi
 ```
 
 ---
 
-## 步骤 5: Worktree 状态
+## 步骤 6: Worktree 状态
 
 ```bash
 echo ""
 echo "=== Worktree 状态 ==="
 
-worktree_list=$(git worktree list 2>/dev/null)
+worktree_list=$(git worktree list --porcelain 2>/dev/null)
 
 if [[ -z "$worktree_list" ]]; then
   echo "无活跃 worktree"
 else
-  worktree_count=$(echo "$worktree_list" | grep -c . || echo "0")
-  echo "活跃 worktree: $worktree_count"
-  echo ""
-
-  while IFS= read -r line; do
+  # 解析 worktree 列表
+  git worktree list 2>/dev/null | tail -n +1 | while IFS= read -r line; do
     wt_path=$(echo "$line" | awk '{print $1}')
     wt_branch=$(echo "$line" | awk '{print $2}')
     wt_hash=$(echo "$line" | awk '{print $3}')
 
-    # 检查工作目录状态
-    wt_dirty=""
-    if cd "$wt_path" 2>/dev/null && [[ -n $(git status --porcelain 2>/dev/null) ]]; then
-      wt_dirty=" 📝 有未提交更改"
+    # 判断状态
+    wt_status="unknown"
+    if [[ "$wt_branch" == "[main]" ]]; then
+      wt_status="main"
+    elif [[ "$wt_branch" =~ ^\[worktree- ]]; then
+      if cd "$wt_path" 2>/dev/null; then
+        if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+          wt_status="dirty"
+        elif [[ $(sns_ahead_count 2>/dev/null || echo "0") -gt 0 ]]; then
+          wt_status="busy"
+        elif [[ $(sns_behind_count 2>/dev/null || echo "0") -gt 0 ]]; then
+          wt_status="behind"
+        else
+          wt_status="idle"
+        fi
+        cd - > /dev/null 2>&1
+      fi
+    elif [[ "$wt_branch" =~ ^\[feature/ ]]; then
+      wt_status="feature"
+    elif [[ "$wt_branch" =~ ^\[hotfix/ ]]; then
+      wt_status="hotfix"
+    elif [[ "$wt_branch" =~ ^\[release/ ]]; then
+      wt_status="release"
     fi
-    cd - > /dev/null 2>&1
 
-    echo "  $wt_hash | $wt_branch | $wt_path$wt_dirty"
-  done <<< "$worktree_list"
+    echo "  $wt_hash | $wt_branch | $wt_status | $wt_path"
+  done
 fi
 ```
 
 ---
 
-## 步骤 6: 最近活动
+## 步骤 7: 最近活动
 
 ```bash
 echo ""
@@ -170,7 +211,6 @@ echo "=== 最近活动 ==="
 echo "最近 5 个提交:"
 git log --oneline --format="%h %C(auto)%d%Creset %s (%cr)" -20 | head -5
 
-# 统计今日提交数
 today_count=$(git log --since="00:00" --oneline 2>/dev/null | wc -l | tr -d ' ')
 echo ""
 echo "今日提交: $today_count"

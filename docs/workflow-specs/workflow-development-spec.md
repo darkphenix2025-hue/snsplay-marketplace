@@ -25,59 +25,84 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           Git 分支架构总览                               │
+│                        Git 分支与版本架构总览                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  生产环境线 (Product Line)                                              │
-│  main ──► release ──► 测试 ──► main ──► tag ──► product                │
+│  版本发布线 (tag 驱动)                                                  │
+│  main (x.y.z-dev.N)                                                     │
+│      └──► release/x.y.z (x.y.z-rc.N) ──► tag vX.Y.Z ──► 线上服务       │
 │                                                                         │
-│  feature 开发线 (多 worktree 并行)                                       │
-│  ┌───────────────────────┐                                              │
-│  │ worktree-001 (基线)    │ ── feature/* ──► PR ──► main               │
-│  └───────────────────────┘ ───────────────────────────────────────────┘ │
-│  ┌───────────────────────┐                                              │
-│  │ worktree-002 (基线)    │ ── feature/* ──► PR ──► main               │
-│  └───────────────────────┘ ───────────────────────────────────────────┘ │
-│  ┌───────────────────────┐                                              │
-│  │ worktree-003 (基线)    │ ── feature/* ──► PR ──► main               │
-│  └───────────────────────┘ ───────────────────────────────────────────┘ │
+│  并行开发线 (多 worktree)                                               │
+│  worktree-001 ──► [快捷模式: 直接开发] ───────────────► PR ──► main     │
+│  worktree-002 ──► [Feature 模式: feature/*] ──────────► PR ──► main     │
+│  worktree-003 ──► [Feature 模式: feature/*] ──────────► PR ──► main     │
 │                                                                         │
-│  Hotfix 线                                                              │
-│  worktree 中修补 ──► product (tag) ──► main (PR)                        │
+│  线上热修复线                                                           │
+│  tag vX.Y.Z ──► hotfix/x.y.(z+1) ──► tag vX.Y.(Z+1) ──► 回流 main/release│
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.3 分支定义与职责
 
-| 分支类型 | 命名规范 | 来源 | 合并目标 | 用途 |
-|----------|---------|------|----------|------|
-| **main** | `main` | - | release/hotfix 来源 | 开发主线 |
-| **product** | `product` | tag | - | 生产环境版本线 |
-| **release** | `release/v<major>.<minor>.<patch>` | main | main→tag→product | 发布候选 |
-| **hotfix** | `hotfix/v<major>.<minor>.<patch>` | tag | product (tag) → main (PR) | 生产紧急修复 |
-| **worktree** | `worktree-<NNN>` | main | - | 长期开发容器 (不随 Feature 删除) |
-| **feature** | `feature/<name>` | worktree | main | 单次 Feature 开发 (临时分支) |
+| 类型 | 命名规范 | 来源 | 目标 | 用途 |
+|------|---------|------|------|------|
+| **main** | `main` | 默认主线 | `release/*`、被 worktree/feature/hotfix/release 回流 | 下一开发版本主线 |
+| **release** | `release/<major>.<minor>.<patch>` | `main` | `tag`、`main` | 发布冻结、测试验证、发布候选演进 |
+| **hotfix** | `hotfix/<major>.<minor>.<patch>` | 正式 `tag` | `tag`、`main`、活动中的 `release/*` | 线上紧急修复 |
+| **worktree** | `worktree-<NNN>` | `main` | 通过 PR 合并到 `main` | 长期开发容器，可直接开发也可承载 feature |
+| **feature** | `feature/<name>` | `worktree-<NNN>` | `main` | 新功能开发、大改动、实验性需求 |
+| **tag** | `v<major>.<minor>.<patch>` | `release/*` 或 `hotfix/*` | 线上部署 | 唯一真实线上版本锚点 |
 
-### 1.4 版本号规范
+**关键约束：**
 
-采用语义化版本号 (SemVer)：`v<major>.<minor>.<patch>`
+- 线上服务只认正式 `tag`，不认 `main`、`worktree`、`feature/*`
+- `main` 上的变更必须经过 `release/*` 才能形成常规发布
+- 线上问题只能通过 `hotfix/*` 修复，禁止直接在 `main` 上修线上版本
+- `worktree` 是开发容器，不是版本语义单位
+- 版本升级由变更性质决定，不由分支名称决定
 
-| 版本类型 | 递增规则 | 示例 | 触发场景 |
-|----------|---------|------|----------|
-| **major** | 不兼容的 API 变更 | v1.0.0 → v2.0.0 | release 发布后 |
-| **minor** | 向后兼容的功能新增 | v1.0.0 → v1.1.0 | feature 合并到 main |
-| **patch** | 向后兼容的问题修复 | v1.0.0 → v1.0.1 | hotfix 合并到 product |
+### 1.4 版本号与状态模型
+
+采用语义化版本号 (SemVer)：
+
+```text
+MAJOR.MINOR.PATCH[-PRERELEASE]
+```
+
+| 状态 | 版本示例 | 所在位置 | 说明 |
+|------|---------|---------|------|
+| **开发态** | `1.6.0-dev.3` | `main` | 下一开发版本，持续集成 |
+| **候选态** | `1.6.0-rc.2` | `release/1.6.0` | 已冻结功能，只允许修复和验证 |
+| **正式态** | `v1.6.0` | `tag` | 线上可部署版本 |
+| **热修复目标态** | `1.6.1` | `hotfix/1.6.1` | 从线上 tag 派生的修复目标版本 |
+
+**版本升级规则：**
+
+| 变更性质 | 版本变化 | 典型场景 |
+|----------|---------|---------|
+| **Major** | `X+1.0.0` | 破坏性变更、协议不兼容 |
+| **Minor** | `X.Y+1.0` | 新功能、向后兼容的能力扩展 |
+| **Patch** | `X.Y.Z+1` | 缺陷修复、小优化、配置/文档修正 |
+
+**核心原则：**
+
+- 正式版本只以 `vX.Y.Z` 形式出现
+- `main` 维护“下一版本开发态”，`release/*` 维护“当前候选态”
+- `hotfix/*` 的目标版本必须大于当前线上 tag
+- 预发布标识用于规范设计；若工具暂未完全支持，以分支名和流程约束为准，正式发布仍只认 `tag`
 
 ### 1.5 核心工作流
 
-#### 1.5.1 Worktree 管理
+#### 1.5.1 Worktree 管理与开发模式
 
 **Worktree 策略：**
 
 - 按需手工创建，不预初始化
-- worktree 长期保留，不随 Feature 完成而删除
-- 每个 worktree 对应一个同名的长期分支
+- worktree 长期保留，不随任务完成而删除
+- 每个 worktree 对应一个同名长期分支
+- 一个 worktree 同一时间只承载一个任务
+- 合并完成后仅在工作区干净时允许 reset 到最新 `main`
 
 ```bash
 # 创建新的 worktree (在 .claude/worktrees 目录下)
@@ -91,183 +116,379 @@ git worktree list
 
 | 状态 | 说明 | 识别方式 |
 |------|------|----------|
-| **空闲 (Idle)** | 与 main 同步，无进行中的 Feature | `git status` 干净，分支为 `worktree-NNN` |
-| **占用 (Busy)** | 有进行中的 Feature 分支 | 当前在 `feature/*` 分支 |
-| **落后 (Behind)** | 落后于 main | `git status` 显示落后提交数 |
-
-#### 1.5.2 Feature 开发工作流 (集成 Worktree 管理)
+| **空闲 (Idle)** | 与 `main` 同步，无进行中任务 | 工作区干净，当前分支为 `worktree-NNN` |
+| **占用 (Busy)** | 正在开发任务 | 当前位于 `feature/*`，或 `worktree-NNN` 有未合并提交 |
+| **落后 (Behind)** | 基线落后于 `main` | `git fetch` 后显示 behind |
 
 **双模式开发策略：**
 
-根据任务复杂度选择两种开发模式：
-
-| 模式 | 适用场景 | 分支策略 | 流程 |
-|------|---------|---------|------|
-| **快捷模式** | 基于 worktree 的 bug 修补和微调 | 直接在 `worktree-NNN` 分支开发 | [可选sync] → 开发 → 快速 PR → 合并 → hard reset 到最新 main |
-| **Feature 模式** | 新功能开发、大重构 | 创建 `feature/*` 分支 | feature (自动sync) → 开发 → PR → 合并 → 删除 feature 分支 → 回到 worktree |
+| 模式 | 适用场景 | 分支策略 | 版本影响 |
+|------|---------|---------|---------|
+| **快捷模式** | 小修复、文档、配置、微调 | 直接在 `worktree-NNN` 开发并 PR 到 `main` | 通常为 `PATCH`，若实际引入新能力则按 `MINOR` |
+| **Feature 模式** | 新功能、大改动、较高风险任务 | 从 `worktree-NNN` 创建 `feature/*`，经 PR 合并到 `main` | 由变更语义决定，通常为 `MINOR` 或 `MAJOR` |
 
 **快捷模式流程：**
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        快捷模式开发流程                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  步骤 1: 进入 worktree                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  cd .claude/worktrees/worktree-003                                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 2: [可选] sns-workflow:sync                                      │
-│  │  sns-workflow sync                                                │   │
-│  │  # 可选：同步 main 最新代码到 worktree 分支                        │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 3: 开发                                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  # 修改代码...                                                    │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 4: sns-workflow:commit-push-pr                                  │   │
-│  │  # 自动：commit + push + PR + merge                                │   │
-│  │  # 自动：hard reset worktree 分支到最新 main                       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-**快捷模式命令示例：**
-
-```bash
-# ========== 步骤 1: 进入 worktree ==========
-cd .claude/worktrees/worktree-003
-
-# ========== [可选] 步骤 2: 同步 main 最新代码 ==========
-sns-workflow sync
-# 可选执行：确保开发基于最新 main
-
-# ========== 步骤 3: 开发 ==========
-# 修改代码...
-
-# ========== 步骤 4: 提交+推送+PR+合并+重置 ==========
-sns-workflow commit-push-pr
-# 自动执行：git push
-# 自动执行：gh pr create --base main --head worktree-003
-# 自动执行：gh pr merge --squash --delete-branch
-# 自动执行：git fetch origin main && git reset --hard origin/main
+```text
+空闲 worktree
+  -> [可选] sns-workflow sync
+  -> 直接开发
+  -> sns-workflow commit-push-pr
+  -> 合并到 main
+  -> worktree reset 到最新 main
 ```
 
 **Feature 模式流程：**
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Feature 开发完整流程                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  步骤 1: 进入 worktree                                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  cd .claude/worktrees/worktree-003                                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 2: sns-workflow:feature                                         │   │
-│  │  # 自动：sync (同步 main 最新代码)                                  │   │
-│  │  # 自动：创建 feature/* 分支                                        │   │
-│  │  # 等待用户输入 feature 名称                                        │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 3: 开发                                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  # 开发代码...                                                    │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                    │                                    │
-│                                    ▼                                    │
-│  步骤 4: sns-workflow:commit-push-pr                                  │   │
-│  │  # 自动：commit + push + PR + merge                                │   │
-│  │  # 自动：删除 feature/* 分支                                        │   │
-│  │  # 自动：回到 worktree-NNN 分支                                     │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+```text
+空闲 worktree
+  -> sns-workflow feature
+  -> 创建 feature/*
+  -> 开发
+  -> sns-workflow commit-push-pr
+  -> feature/* 合并到 main
+  -> 删除 feature/*
+  -> 回到 worktree 基线
 ```
 
-**详细命令步骤：**
+**安全约束：**
 
-```bash
-# ========== 步骤 1: 进入 worktree ==========
-cd .claude/worktrees/worktree-003
+- reset 前必须确认无未提交变更
+- 若 worktree 有未推送提交，禁止自动 reset
+- `sync` 只同步基线，不改变版本决策
+- 快捷模式是开发路径优化，不是“绕过 release 直接上线”
 
-# ========== 步骤 2: 开始功能开发 (自动 sync + 创建 feature 分支) ==========
-sns-workflow feature
-# 提示输入 feature 名称，如：user-auth-module
-# 自动执行：git fetch + rebase origin/main
-# 自动执行：git checkout -b feature/user-auth-module
+#### 1.5.2 场景与版本演进矩阵
 
-# ========== 步骤 3: 开发 ==========
-# 开发代码...
-
-# ========== 步骤 4: 提交+推送+PR+合并+清理 ==========
-sns-workflow commit-push-pr
-# 自动执行：git push
-# 自动执行：gh pr create --base main --head feature/user-auth-module
-# 自动执行：gh pr merge --squash --delete-branch
-# 自动执行：git checkout worktree-003 (回到 worktree 分支)
-```
+| 场景 | 起点 | 主要操作 | 版本演进 | 发布方式 | 回流规则 |
+|------|------|---------|---------|---------|---------|
+| **空闲 worktree 直接快速开发** | `worktree-NNN` | `sync` 后直接开发并 PR 到 `main` | 按变更语义决定，通常为下一 `PATCH` | 不直接发布 | 合并后 reset 到最新 `main` |
+| **从 worktree 进行 feature 开发** | `worktree-NNN` | 创建 `feature/*` 并合并到 `main` | 按变更语义决定，通常为下一 `MINOR` | 不直接发布 | 删除 `feature/*`，回到 `worktree-NNN` |
+| **main 主线快速修改** | `main` 的空闲 worktree | 快捷模式完成小改动 | `x.y.z-dev.N -> x.y.(z+1)-dev.1` 或进入下一 `MINOR` | 不直接发布 | 等待后续 release |
+| **创建 release** | `main` | 切 `release/x.y.z` | `main` 保持下一开发态；`release` 进入 `x.y.z-rc.1` | 否 | `release` 修复完成后回流 `main` |
+| **release 演进** | `release/x.y.z` | 测试、修复、验证 | `rc.1 -> rc.2 -> ... -> x.y.z` | 仅正式发布时打 tag | 每次 release 修复都应合回 `main` |
+| **正式发布到线上** | `release/x.y.z` | `publish` 打 `vX.Y.Z` tag | `x.y.z -> vX.Y.Z` | 线上按 tag 部署 | 发布完成后 `release -> main` |
+| **线上 hotfix** | `tag vX.Y.Z` | 切 `hotfix/x.y.(z+1)` 并修复 | `vX.Y.Z -> vX.Y.(Z+1)` | 在 `hotfix/*` 上打新 tag | 必须回流 `main`；若有活动 release 也必须同步 |
 
 #### 1.5.3 Release 发布工作流
 
+**目标：** 将 `main` 上已经具备发布条件的一组变更冻结、验证并打正式 `tag`。
+
+```text
+main (1.6.0-dev.N)
+  -> release/1.6.0 (1.6.0-rc.1)
+  -> 1.6.0-rc.2
+  -> 1.6.0
+  -> tag v1.6.0
+  -> release/1.6.0 回流 main
+  -> main 进入下一开发态
 ```
-1. 从 main 切出 release 分支 (sns-workflow:release):
-   sns-workflow release v1.0.0
-   # git checkout -b release/v1.0.0 main
-   # git checkout main && git merge release/v1.0.0 (测试完成后)
 
-2. 在 release 分支进行测试和必要修复
+**标准步骤：**
 
-3. 发布到生产线 (sns-workflow:publish):
-   sns-workflow publish v1.0.0
-   # git checkout main && git tag -a v1.0.0 -m "Release v1.0.0"
-   # git checkout product && git merge main && git push origin product --tags
+```bash
+# 1. 从 main 创建 release 分支
+sns-workflow release 1.6.0
+# git checkout -b release/1.6.0 main
 
-4. release 后调整主版本号:
-   v1.0.0 → v2.0.0 (下次 release)
+# 2. 在 release 分支进行测试与修复
+# 版本演进: 1.6.0-rc.1 -> 1.6.0-rc.2 -> 1.6.0
+
+# 3. 正式发布，创建线上 tag
+sns-workflow publish 1.6.0
+# git checkout release/1.6.0
+# git tag -a v1.6.0 -m "Release v1.6.0"
+# git push origin release/1.6.0 v1.6.0
+
+# 4. 回流主线
+git checkout main
+git merge release/1.6.0
 ```
+
+**Release 规则：**
+
+- `release/*` 上禁止新增功能
+- `release/*` 上只允许修复、验证、配置调整和发布准备
+- 常规上线只能从 `release/*` 打正式 tag
+- 发布完成后，`main` 必须进入下一开发版本
 
 #### 1.5.4 Hotfix 修复工作流
 
 **Hotfix 策略:**
 - 从空闲 worktree 执行修复
-- 先合并到 product (打新 tag)
-- 再创建 PR 合并回 main
+- 从正式 `tag` 派生 hotfix 分支
+- 在 `hotfix/*` 上完成修复并打新 tag
+- 发布后必须回流 `main`
+- 若存在活动中的 `release/*`，必须同步该修复
 
-```
-1. 选择空闲 worktree:
-   cd .claude/worktrees/worktree-003
-   sns-workflow sync
-
-2. 从最新 tag 切出 hotfix 分支:
-   git checkout -b hotfix/v1.0.1 v1.0.0
-
-3. 修复:
-   # 修改代码...
-
-4. 推送到 product (打新 tag):
-   sns-workflow commit-push-pr
-   # 自动检测 hotfix/* 分支
-   # 自动：git push origin hotfix/v1.0.1
-   # 自动：gh pr create --base product --head hotfix/v1.0.1
-   # 自动：合并后打新 tag v1.0.1
-   # 自动：创建从 product 到 main 的 PR (同步修复)
-
-5. 回到 worktree 分支:
-   git checkout worktree-003
+```text
+tag v1.6.0
+  -> hotfix/1.6.1
+  -> 修复并验证
+  -> tag v1.6.1
+  -> hotfix/1.6.1 回流 main
+  -> 如有活动 release，再回流 release/*
 ```
 
-### 1.2 工作流技能分类
+**标准步骤：**
+
+```bash
+# 1. 选择空闲 worktree
+cd .claude/worktrees/worktree-003
+sns-workflow sync
+
+# 2. 从线上 tag 派生 hotfix 分支
+git checkout -b hotfix/1.6.1 v1.6.0
+
+# 3. 修复问题
+# 修改代码...
+
+# 4. 发布 hotfix
+sns-workflow commit-push-pr
+# 自动检测 hotfix/*
+# 自动推送 hotfix/1.6.1
+# 自动创建并打 tag v1.6.1
+
+# 5. 回流主线
+git checkout main
+git merge hotfix/1.6.1
+
+# 6. 如存在活动 release，继续同步
+git checkout release/1.7.0
+git merge hotfix/1.6.1
+```
+
+#### 1.5.5 回流与同步规则
+
+**回流优先级：**
+
+1. 线上 hotfix 发布后，优先回流 `main`
+2. 若存在活动中的 `release/*`，再同步到对应 `release/*`
+3. `release/*` 上的修复必须择机回流 `main`
+4. worktree 合并完成后，只回到自己的基线，不直接参与发布
+
+**冲突处理原则：**
+
+- 当 `main` 与线上同时演进时，先保留 hotfix，再将修复合入 `main`
+- 若 `main` 上已有新功能提交，hotfix 回流时禁止覆盖主线变更
+- 若 release 期间出现线上 hotfix，应先完成 hotfix 发布，再同步到 release
+- 所有同步动作都必须保留正式 tag 作为版本锚点
+
+#### 1.5.6 命令行为规范
+
+为保证规则可自动化实现，命令行为必须同时定义“允许在哪个上下文执行”“执行后版本如何变化”“执行后的分支收尾动作”。
+
+| 命令 | 允许上下文 | 核心动作 | 版本变化 | 收尾动作 |
+|------|-----------|---------|---------|---------|
+| `sns-workflow sync` | `worktree-NNN` | 同步最新 `main` 到 worktree 基线 | 无 | 保持在当前 worktree 分支 |
+| `sns-workflow feature` | 空闲 `worktree-NNN` | 创建 `feature/<name>` | 无立即版本变化 | 切换到新建 `feature/*` |
+| `sns-workflow commit-push-pr` | `worktree-NNN` | 将快捷模式改动 PR 到 `main` | 合并后按语义进入下一 `PATCH` 或 `MINOR` | merge 后 reset worktree 到最新 `main` |
+| `sns-workflow commit-push-pr` | `feature/*` | 将 feature PR 到 `main` | 合并后按语义进入下一 `MINOR`/`MAJOR`，修复型 feature 仍可为 `PATCH` | 删除 `feature/*`，回到所属 `worktree-NNN` |
+| `sns-workflow release <x.y.z>` | `main` | 创建 `release/x.y.z` 并冻结发布候选 | `release` 进入 `x.y.z-rc.1` | `main` 继续下一开发态 |
+| `sns-workflow publish <x.y.z>` | `release/x.y.z` | 校验后打 `vX.Y.Z` tag | `x.y.z -> vX.Y.Z` | 发布后将 `release/*` 回流 `main` |
+| `sns-workflow commit-push-pr` | `hotfix/x.y.z` | 推送 hotfix、发布新 tag、触发回流 | `vX.Y.Z -> vX.Y.(Z+1)` | 回流 `main`，必要时同步活动 release |
+
+**上下文约束：**
+
+- `sync` 不能在 `feature/*`、`release/*`、`hotfix/*` 上改变版本语义
+- `feature` 只能从空闲 `worktree-NNN` 创建，不得从 `main`、`release/*`、`hotfix/*` 创建
+- `release` 只能从 `main` 创建，禁止从 `feature/*` 直接创建
+- `publish` 只能在匹配的 `release/x.y.z` 上执行
+- `hotfix/*` 只能从正式 `tag` 派生，禁止从 `main` 或 `release/*` 派生
+
+**版本决策约束：**
+
+- 命令不直接决定版本级别，版本级别由变更语义决定
+- `worktree-NNN` 与 `feature/*` 只是开发路径，不是版本类别
+- 对 `main` 的小修复可以走快捷模式，但形成正式发布仍必须经过 `release/*`
+- 对线上版本的修复必须走 `hotfix/*`，不能用“main 已修复”替代 hotfix
+
+#### 1.5.7 版本号模拟演练
+
+以下演练用于验证规则是否闭环、命令行为是否可落地实施。
+
+**演练 1：空闲 worktree 快速修复主线小问题**
+
+```text
+初始状态:
+  线上 tag: v1.5.0
+  main: 1.5.1-dev.1
+  worktree-001: 空闲
+
+操作:
+  1. 在 worktree-001 执行 sns-workflow sync
+  2. 直接修改代码
+  3. 执行 sns-workflow commit-push-pr
+
+预期结果:
+  - PR: worktree-001 -> main
+  - main: 1.5.1-dev.1 -> 1.5.2-dev.1
+  - worktree-001 reset 到最新 main
+  - 不产生正式 tag
+```
+
+**演练 2：从 worktree 创建 feature 开发新功能**
+
+```text
+初始状态:
+  线上 tag: v1.5.0
+  main: 1.5.2-dev.1
+  worktree-002: 空闲
+
+操作:
+  1. 在 worktree-002 执行 sns-workflow feature
+  2. 创建 feature/payment
+  3. 开发完成后执行 sns-workflow commit-push-pr
+
+预期结果:
+  - PR: feature/payment -> main
+  - main: 1.5.2-dev.1 -> 1.6.0-dev.1
+  - feature/payment 删除
+  - worktree-002 回到空闲基线
+```
+
+**演练 3：从 main 创建 release 并完成候选演进**
+
+```text
+初始状态:
+  线上 tag: v1.5.0
+  main: 1.6.0-dev.1
+
+操作:
+  1. 执行 sns-workflow release 1.6.0
+  2. release/1.6.0 上修复测试问题
+  3. 候选版本演进: 1.6.0-rc.1 -> 1.6.0-rc.2 -> 1.6.0
+  4. 执行 sns-workflow publish 1.6.0
+
+预期结果:
+  - 新增 release/1.6.0
+  - 创建 tag v1.6.0
+  - release/1.6.0 回流 main
+  - main 进入下一开发态
+```
+
+**演练 4：线上 hotfix，主线同时继续开发**
+
+```text
+初始状态:
+  线上 tag: v1.6.0
+  main: 1.6.1-dev.1
+  worktree-003: 空闲
+
+操作:
+  1. 在 worktree-003 从 v1.6.0 创建 hotfix/1.6.1
+  2. 修复线上 bug
+  3. 执行 sns-workflow commit-push-pr
+  4. 将 hotfix/1.6.1 回流 main
+
+预期结果:
+  - 创建 tag v1.6.1
+  - main 保留原有开发提交，同时包含 hotfix 修复
+  - 不覆盖 main 上已有功能开发
+```
+
+**演练 5：存在活动 release 时发生线上 hotfix**
+
+```text
+初始状态:
+  线上 tag: v1.6.0
+  main: 1.7.0-dev.1
+  release/1.7.0: 1.7.0-rc.2
+
+操作:
+  1. 从 v1.6.0 创建 hotfix/1.6.1
+  2. 发布 tag v1.6.1
+  3. hotfix/1.6.1 -> main
+  4. hotfix/1.6.1 -> release/1.7.0
+
+预期结果:
+  - 线上立即修复到 v1.6.1
+  - main 不丢失 hotfix
+  - release/1.7.0 在后续发布中包含该修复
+```
+
+**演练 6：应被阻止的非法操作**
+
+```text
+非法操作 A:
+  在 feature/payment 上执行 publish 1.6.0
+结果:
+  拒绝执行，因为 publish 只能在 release/1.6.0 上运行
+
+非法操作 B:
+  从 main 创建 hotfix/1.6.1
+结果:
+  拒绝执行，因为 hotfix 必须从正式 tag 派生
+
+非法操作 C:
+  worktree 存在未推送提交时自动 reset
+结果:
+  拒绝执行，因为会造成潜在工作丢失
+```
+
+**落地判定标准：**
+
+- 每次演练都能明确起点分支、命令、目标版本、回流目标
+- 任一时刻都能唯一确定“当前线上真实版本”
+- 任一修复都不会在后续 release 中丢失
+- 任一 worktree 在回收前都能通过 clean/behind/busy 状态检查
+
+#### 1.5.8 验收清单
+
+以下清单用于验收 `sns-workflow` 的实现是否符合当前分支模型、版本规则和自动化约束。
+
+**一、分支与上下文验收**
+
+- `sync` 仅允许在 `worktree-NNN` 上执行
+- `feature` 仅允许从空闲 `worktree-NNN` 创建
+- `release <x.y.z>` 仅允许在 `main` 上执行
+- `publish <x.y.z>` 仅允许在匹配的 `release/x.y.z` 上执行
+- `hotfix/x.y.z` 只能从正式 `tag` 派生
+- `commit-push-pr` 必须能识别 `worktree-NNN`、`feature/*`、`hotfix/*` 三类上下文
+
+**二、版本语义验收**
+
+- 版本升级按变更语义决定，而不是按分支名机械决定
+- `main` 始终表示下一开发版本，如 `x.y.z-dev.N`
+- `release/*` 始终表示候选版本，如 `x.y.z-rc.N`
+- 正式发布后必须生成唯一 `tag vX.Y.Z`
+- `hotfix/*` 的目标版本必须严格大于当前线上版本
+
+**三、流程闭环验收**
+
+- worktree 快捷模式合并后能回到最新 `main`
+- feature 模式合并后能删除 `feature/*` 并回到 worktree 基线
+- 常规发布必须经历 `main -> release/* -> tag`
+- 线上修复必须经历 `tag -> hotfix/* -> tag`
+- hotfix 发布后必须回流 `main`
+- 若存在活动中的 `release/*`，hotfix 也必须同步到该 release
+
+**四、安全约束验收**
+
+- 工作区不干净时禁止执行会破坏状态的自动化命令
+- 存在未推送提交时禁止自动 reset worktree
+- 非法上下文中的命令必须明确报错并停止
+- 已存在的正式 tag 不可覆盖
+- 不允许从 `main` 直接修复线上版本并替代 hotfix
+
+**五、可观察性验收**
+
+- 每个命令都能输出当前分支、目标分支和版本决策
+- 每个失败场景都能输出明确的阻止原因
+- 每个成功场景都能输出下一步建议
+- 发布类命令必须输出最终生成的 tag
+
+#### 1.5.9 测试用例设计原则
+
+为避免测试只覆盖“快乐路径”，测试设计必须同时覆盖正向、负向、边界和回流场景。
+
+- 单元测试: 校验分支识别、版本计算、命令参数校验、非法上下文拦截
+- 集成测试: 校验本地 git 操作、分支切换、tag 创建、回流逻辑
+- 端到端测试: 校验一条完整业务路径是否从开发走到发布闭环
+- 回归测试: 校验 hotfix、release 演进、worktree reset 等高风险路径不会退化
+- 破坏性测试: 校验脏工作区、重复 tag、错误分支、版本倒退等场景被正确拒绝
+
+### 1.6 工作流技能分类
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
