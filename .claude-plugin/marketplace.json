@@ -29,12 +29,14 @@
         "./skills/implement",
         "./skills/once",
         "./skills/plan",
+        "./skills/init",
         "./skills/publish",
         "./skills/rca",
         "./skills/release",
         "./skills/requirements",
         "./skills/review",
-        "./skills/sync"
+        "./skills/sync",
+        "./skills/status"
       ]
     }
   ]
