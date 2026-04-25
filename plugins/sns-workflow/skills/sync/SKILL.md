@@ -14,7 +14,8 @@ allowed-tools: Bash
 ## 步骤 1: 验证环境与上下文
 
 ```bash
-source .sns-workflow/scripts/context.sh
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/shell"
+source "$SHELL_DIR/context.sh"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)

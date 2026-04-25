@@ -31,8 +31,9 @@ echo "最新提交: $latest_commit"
 ## 步骤 2: 版本状态
 
 ```bash
-source .sns-workflow/scripts/version.sh 2>/dev/null || echo "警告: version.sh 不存在，跳过版本信息"
-source .sns-workflow/scripts/context.sh 2>/dev/null || echo "警告: context.sh 不存在，跳过上下文信息"
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/shell"
+source "$SHELL_DIR/version.sh" 2>/dev/null || echo "警告: version.sh 不存在，跳过版本信息"
+source "$SHELL_DIR/context.sh" 2>/dev/null || echo "警告: context.sh 不存在，跳过上下文信息"
 
 echo ""
 echo "=== 版本状态 ==="
