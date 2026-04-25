@@ -28,21 +28,33 @@ allowed-tools: Bash
 ## 步骤 0: 自愈安装（scripts 缺失时自动补全）
 
 ```bash
-# 检测依赖脚本是否存在，缺失则从插件模板自动安装
+# 检测依赖脚本是否存在且函数齐全，否则从插件模板自动安装/更新
 # 解决循环依赖: commit-push-pr 需要 scripts → setup 安装 scripts → setup 要求干净工作区
+NEED_INSTALL=false
 if [[ ! -f ".sns-workflow/scripts/version.sh" ]] || [[ ! -f ".sns-workflow/scripts/context.sh" ]]; then
+  NEED_INSTALL=true
+else
+  # 检测关键函数是否存在（模板升级后旧文件可能缺少新函数）
+  source .sns-workflow/scripts/version.sh 2>/dev/null || true
+  if ! type sns_bump_prerelease &>/dev/null; then
+    NEED_INSTALL=true
+    echo "检测到版本脚本需要更新..."
+  fi
+fi
+
+if $NEED_INSTALL; then
   PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
   # fallback: 从当前技能文件路径推导插件根目录
   if [[ -z "$PLUGIN_ROOT" ]] && [[ -f "plugins/sns-workflow/templates/scripts/version.sh" ]]; then
     PLUGIN_ROOT="plugins/sns-workflow"
   fi
   if [[ -n "$PLUGIN_ROOT" ]] && [[ -d "$PLUGIN_ROOT/templates/scripts" ]]; then
-    echo "检测到依赖脚本缺失，自动从模板安装..."
+    echo "自动从模板安装/更新依赖脚本..."
     mkdir -p .sns-workflow/scripts
     cp "$PLUGIN_ROOT/templates/scripts/version.sh" .sns-workflow/scripts/version.sh
     cp "$PLUGIN_ROOT/templates/scripts/context.sh" .sns-workflow/scripts/context.sh
     chmod +x .sns-workflow/scripts/*.sh
-    echo "已自愈安装: .sns-workflow/scripts/"
+    echo "已安装: .sns-workflow/scripts/"
   else
     echo "错误: 依赖脚本缺失且无法自动安装"
     echo "请先执行 /sns-workflow:setup"
