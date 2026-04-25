@@ -122,7 +122,7 @@ echo "已推送 tag: $target_tag"
 
 ---
 
-## 步骤 5: 回流 main
+## 步骤 5: 回流 main 并清理 release 分支
 
 ```bash
 echo "回流 main..."
@@ -134,6 +134,11 @@ git merge "$current_branch" --no-edit
 git push origin main
 
 echo "release 已回流 main"
+
+# 清理 release 分支
+git branch -d "$current_branch"
+git push origin --delete "$current_branch" 2>/dev/null || true
+echo "已删除 release 分支: $current_branch"
 ```
 
 ---
@@ -144,11 +149,9 @@ echo "release 已回流 main"
 echo ""
 echo "=== 发布完成 ==="
 echo "线上版本: $target_tag"
-echo "release 分支: $current_branch (已回流 main)"
 echo "当前分支: $(git branch --show-current)"
 echo "最新提交: $(git log --oneline -1)"
 echo ""
-echo "下一步:"
-echo "  - main 已进入下一开发态"
-echo "  - 可删除 release 分支: git branch -d $current_branch"
+echo "release 分支已自动清理"
+echo "main 已进入下一开发态"
 ```
