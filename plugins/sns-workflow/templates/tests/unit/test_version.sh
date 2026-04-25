@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../../shell/version.sh"
+source "$SCRIPT_DIR/../../../scripts/version.sh"
 
 PASS=0
 FAIL=0

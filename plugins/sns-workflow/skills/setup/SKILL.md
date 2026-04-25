@@ -34,7 +34,7 @@ fi
 ## 步骤 2: 检查初始化状态
 
 ```bash
-SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/shell"
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 
 if [[ -d ".sns-workflow" ]]; then
@@ -77,7 +77,7 @@ echo "已创建: .sns-workflow/"
 ## 步骤 4: 验证脚本可用
 
 ```bash
-SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/shell"
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
 

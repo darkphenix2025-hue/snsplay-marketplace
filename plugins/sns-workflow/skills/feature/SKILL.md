@@ -16,7 +16,7 @@ allowed-tools: Bash
 ## 步骤 1: 验证环境与上下文
 
 ```bash
-SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/shell"
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
 
