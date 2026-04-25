@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:setup
-description: 项目初始化 —— 创建 .sns-workflow 目录结构并设置初始版本号为 v0.0.0。
+description: 项目初始化 —— 创建 .sns-workflow 目录结构并设置初始版本号为 v0.0.0。支持 --force 参数强制重新初始化。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -9,11 +9,16 @@ allowed-tools: Bash
 
 为仓库初始化 sns-workflow 所需的基础目录结构，并设置初始版本号 v0.0.0。
 
+**参数**: `--force` — 强制重新初始化（删除已有 .sns-workflow 目录并重建）
+
 ---
 
 ## 步骤 1: 验证环境
 
 ```bash
+FORCE=false
+[[ "${1:-}" == "--force" ]] && FORCE=true
+
 current_branch=$(git branch --show-current)
 
 if [[ "$current_branch" != "main" ]]; then
@@ -30,7 +35,45 @@ fi
 
 ---
 
-## 步骤 2: 创建目录结构
+## 步骤 2: 检查初始化状态
+
+```bash
+VERSION_SH=".sns-workflow/scripts/version.sh"
+
+if [[ -f "$VERSION_SH" ]]; then
+  source "$VERSION_SH"
+
+  all_tags=$(git tag -l --sort=-version:refname)
+  latest_tag=$(echo "$all_tags" | head -1)
+  tag_count=$(echo "$all_tags" | grep -c . 2>/dev/null || echo "0")
+
+  echo "=== sns-workflow 项目已初始化 ==="
+  echo ""
+  echo "版本脚本: $VERSION_SH (存在)"
+  echo "当前版本: ${latest_tag:-无 tag}"
+  echo "总版本数: $tag_count"
+  echo ""
+
+  if [[ "$FORCE" == "true" ]]; then
+    echo "⚠ --force 参数已启用，正在删除已有配置..."
+    rm -rf .sns-workflow/
+    echo "已删除 .sns-workflow/ 目录，继续初始化流程..."
+    echo ""
+  else
+    echo "提示: 如需重新初始化，请使用 /sns-workflow:setup --force"
+    echo ""
+    echo "=== 项目初始化状态 ==="
+    echo "目录: .sns-workflow/"
+    echo "脚本: version.sh (已存在)"
+    echo "版本: ${latest_tag:-未打 tag}"
+    exit 0
+  fi
+fi
+```
+
+---
+
+## 步骤 3: 创建目录结构
 
 ```bash
 mkdir -p .sns-workflow/scripts
@@ -39,7 +82,7 @@ mkdir -p plugins/sns-workflow/skills
 
 ---
 
-## 步骤 3: 写入版本脚本
+## 步骤 4: 写入版本脚本
 
 ```bash
 cat > .sns-workflow/scripts/version.sh << 'VERSION_SCRIPT'
@@ -89,7 +132,7 @@ echo "已创建 .sns-workflow/scripts/version.sh"
 
 ---
 
-## 步骤 4: 设置初始版本
+## 步骤 5: 设置初始版本
 
 ```bash
 source .sns-workflow/scripts/version.sh
@@ -106,18 +149,22 @@ fi
 
 ---
 
-## 步骤 5: 提交并推送
+## 步骤 6: 提交并推送
 
 ```bash
 git add .sns-workflow/
-git status --short
+CHANGES=$(git status --short)
 
-echo "提交项目初始化..."
-git commit -m "chore: initialize sns-workflow (v0.0.0)"
+if [[ -z "$CHANGES" ]]; then
+  echo "无新变更，跳过提交"
+else
+  echo "提交项目初始化..."
+  git commit -m "chore: initialize sns-workflow (v0.0.0)"
 
-echo "推送到远端..."
-git push origin main
-git push origin v0.0.0
+  echo "推送到远端..."
+  git push origin main
+  git push origin v0.0.0 2>/dev/null || true
+fi
 
 echo ""
 echo "=== 项目初始化完成 ==="
