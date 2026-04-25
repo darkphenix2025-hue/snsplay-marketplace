@@ -144,20 +144,25 @@ assert_false "unknown not hotfix" "[[ '$branch_type' == 'hotfix' ]]"
 git checkout -q main
 
 echo ""
-echo "=== TC-CPP-EXTRA: main 分支拒绝 ==="
+echo "=== TC-CPP-EXTRA: main 分支直接提交 ==="
 branch_type=$(sns_branch_type)
 assert_eq "main type" "main" "$branch_type"
-# commit-push-pr 应拒绝 main
-assert_true "main should be rejected" "[[ '$branch_type' == 'main' ]]"
-assert_false "main is not a valid cpp context" "[[ '$branch_type' != 'main' ]]"
+assert_true "main is a valid cpp context" "[[ '$branch_type' == 'main' ]]"
+# main 路径: commit + push 直接提交，不产生 tag
 
 echo ""
-echo "=== TC-CPP-EXTRA: release 分支拒绝 ==="
+echo "=== TC-CPP-EXTRA: release 分支 rc 迭代 ==="
 git checkout -q -b release/1.7.0 main
 branch_type=$(sns_branch_type)
 assert_eq "release type" "release" "$branch_type"
-# commit-push-pr 应拒绝 release，提示用 publish
-assert_true "release should use publish" "[[ '$branch_type' == 'release' ]]"
+assert_true "release is a valid cpp context" "[[ '$branch_type' == 'release' ]]"
+# 模拟 rc 迭代修复
+echo "rc fix" > rcfix.txt
+git add rcfix.txt
+git commit -q -m "fix(1.7.0): rc update"
+# rc 修复不产生 tag
+latest=$(sns_latest_tag)
+assert_eq "rc fix does not create tag" "v1.6.0" "$latest"
 git checkout -q main
 
 echo ""
