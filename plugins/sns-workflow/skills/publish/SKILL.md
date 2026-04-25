@@ -23,11 +23,32 @@ source "$SHELL_DIR/context.sh"
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
 
-# 必须在 release 分支上
+# 不在 release 分支时，自动检测并切换
 if [[ "$branch_type" != "release" ]]; then
-  echo "错误: publish 命令仅在 release/* 分支上使用 (当前: $current_branch, 类型: $branch_type)"
-  echo "常规发布流程: /sns-workflow:release → 测试 → /sns-workflow:publish"
-  exit 1
+  # 查找活动中的 release 分支
+  active_releases=$(sns_active_release_branches)
+  if [[ -z "$active_releases" ]]; then
+    echo "错误: 没有活动中的 release 分支"
+    echo "请先执行: /sns-workflow:release"
+    exit 1
+  fi
+
+  release_count=$(echo "$active_releases" | grep -c .)
+  if [[ "$release_count" -gt 1 ]]; then
+    echo "错误: 存在多个活动 release 分支，请手动切换:"
+    echo "$active_releases" | while read rb; do
+      echo "  git checkout $rb"
+    done
+    exit 1
+  fi
+
+  target_release=$(echo "$active_releases" | head -1)
+  echo "当前不在 release 分支，自动切换到 $target_release"
+  git checkout "$target_release"
+
+  # 更新上下文
+  current_branch=$(git branch --show-current)
+  branch_type=$(sns_branch_type)
 fi
 
 # 工作区必须干净
