@@ -92,6 +92,14 @@ fi
 
 echo "线上版本: ${latest_tag:-无}"
 echo "目标版本: $target_tag (验证通过)"
+
+# 检测预发布 tag 历史（信息提示，不阻塞）
+latest_pre=$(sns_latest_prerelease_tag "$target_tag")
+if [[ -n "$latest_pre" ]]; then
+  echo ""
+  echo "已检测到预发布 tag: $latest_pre"
+  echo "发布将基于当前 release 分支 HEAD 打正式 tag"
+fi
 ```
 
 ---
