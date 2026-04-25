@@ -73,7 +73,11 @@
         "./skills/architecture-decision",
         "./skills/system-design",
         "./skills/agile-workflow",
-        "./skills/dev-config"
+        "./skills/dev-config",
+        "./skills/sync",
+        "./skills/hotfix",
+        "./skills/release",
+        "./skills/publish"
       ]
     }
   ]
