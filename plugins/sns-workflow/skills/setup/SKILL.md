@@ -1,5 +1,5 @@
 ---
-name: sns-workflow:init
+name: sns-workflow:setup
 description: 项目初始化 —— 创建 .sns-workflow 目录结构并设置初始版本号为 v0.0.0。
 user-invocable: true
 allowed-tools: Bash
