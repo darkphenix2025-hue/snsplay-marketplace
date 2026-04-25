@@ -72,12 +72,14 @@ git add -A
 HAS_CHANGES=true
 if [[ -z $(git diff --cached --stat) ]]; then
   HAS_CHANGES=false
-  # release 路径：无变更时跳过 commit，但仍可打预发布 tag（阶段推进）
-  if [[ "$branch_type" != "release" ]]; then
+  # 仅 release + --rc 允许无变更打 tag（阶段推进 beta → rc）
+  # 其他路径无变更则退出
+  if [[ "$branch_type" == "release" ]] && $SHIFT_TO_RC; then
+    echo "无代码变更，跳过 commit（仅阶段推进 beta → rc）"
+  else
     echo "没有需要提交的更改"
     exit 0
   fi
-  echo "无代码变更，跳过 commit（仅打预发布 tag）"
 fi
 
 if $HAS_CHANGES; then
