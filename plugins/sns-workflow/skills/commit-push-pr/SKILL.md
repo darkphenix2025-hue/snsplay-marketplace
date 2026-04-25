@@ -69,35 +69,43 @@ fi
 
 ```bash
 git add -A
+HAS_CHANGES=true
 if [[ -z $(git diff --cached --stat) ]]; then
-  echo "没有需要提交的更改"
-  exit 0
+  HAS_CHANGES=false
+  # release 路径：无变更时跳过 commit，但仍可打预发布 tag（阶段推进）
+  if [[ "$branch_type" != "release" ]]; then
+    echo "没有需要提交的更改"
+    exit 0
+  fi
+  echo "无代码变更，跳过 commit（仅打预发布 tag）"
 fi
 
-# 根据分支类型生成 commit message
-case "$branch_type" in
-  main)
-    commit_msg="chore: update"
-    ;;
-  release)
-    rel_version=$(echo "$current_branch" | sed 's/^release\///')
-    commit_msg="fix($rel_version): rc update"
-    ;;
-  worktree)
-    commit_msg="chore: $current_branch update"
-    ;;
-  feature)
-    feat_name=$(echo "$current_branch" | sed 's/^feature\///')
-    commit_msg="feat($feat_name): update"
-    ;;
-  hotfix)
-    hf_version=$(echo "$current_branch" | sed 's/^hotfix\///')
-    commit_msg="hotfix($hf_version): fix"
-    ;;
-esac
+if $HAS_CHANGES; then
+  # 根据分支类型生成 commit message
+  case "$branch_type" in
+    main)
+      commit_msg="chore: update"
+      ;;
+    release)
+      rel_version=$(echo "$current_branch" | sed 's/^release\///')
+      commit_msg="fix($rel_version): rc update"
+      ;;
+    worktree)
+      commit_msg="chore: $current_branch update"
+      ;;
+    feature)
+      feat_name=$(echo "$current_branch" | sed 's/^feature\///')
+      commit_msg="feat($feat_name): update"
+      ;;
+    hotfix)
+      hf_version=$(echo "$current_branch" | sed 's/^hotfix\///')
+      commit_msg="hotfix($hf_version): fix"
+      ;;
+  esac
 
-git commit -m "$commit_msg"
-echo "已提交: $commit_msg"
+  git commit -m "$commit_msg"
+  echo "已提交: $commit_msg"
+fi
 ```
 
 ---
@@ -105,11 +113,13 @@ echo "已提交: $commit_msg"
 ## 步骤 3: Push
 
 ```bash
-git push -u origin "$current_branch" 2>&1 || {
-  echo "Push 失败，请检查远端权限"
-  exit 1
-}
-echo "已推送到远端: $current_branch"
+if $HAS_CHANGES; then
+  git push -u origin "$current_branch" 2>&1 || {
+    echo "Push 失败，请检查远端权限"
+    exit 1
+  }
+  echo "已推送到远端: $current_branch"
+fi
 ```
 
 ---
