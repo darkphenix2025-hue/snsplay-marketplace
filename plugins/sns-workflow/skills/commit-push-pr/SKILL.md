@@ -306,7 +306,7 @@ case "$branch_type" in
 
   hotfix)
     echo ""
-    echo "=== hotfix 路径: PR → main → 打 tag → 回流 ==="
+    echo "=== hotfix 路径: 打 tag → PR 回流 main ==="
 
     # 从分支名提取版本号 (hotfix/1.6.1 → v1.6.1)
     branch_version=$(echo "$current_branch" | sed 's/^hotfix\///')
@@ -319,9 +319,19 @@ case "$branch_type" in
       exit 1
     fi
 
+    # 1. 打 tag（在 hotfix 分支 HEAD 上，修补线上版本）
+    if sns_tag_exists "$target_tag"; then
+      echo "警告: tag $target_tag 已存在，跳过打 tag"
+    else
+      git tag -a "$target_tag" -m "Hotfix release $target_tag"
+      git push origin "$target_tag"
+      echo "已创建并推送 tag: $target_tag（线上补丁完成）"
+    fi
+
+    # 2. PR 回流 main（类似 feature 合并，防止修改丢失）
     pr_url=$(gh pr create --base main --head "$current_branch" \
       --title "hotfix: $target_tag" \
-      --body "Hotfix PR for version $target_tag" 2>&1) || {
+      --body "Hotfix backflow to main for version $target_tag" 2>&1) || {
       echo "PR 创建失败: $pr_url"
       exit 1
     }
@@ -331,7 +341,7 @@ case "$branch_type" in
     pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
     repo_name=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null)
 
-    # 合并 PR（优先用 --admin 绕过 worktree checkout 限制）
+    # 合并 PR（优先常规方式，失败时 fallback 到 API）
     if ! gh pr merge "$pr_number" --squash --delete-branch 2>&1; then
       echo "常规合并失败（可能因 worktree 限制），尝试 API 合并..."
       if ! gh api "repos/$repo_name/pulls/$pr_number/merge" -X PUT \
@@ -343,19 +353,7 @@ case "$branch_type" in
       # 手动删除远端分支
       gh api "repos/$repo_name/git/refs/heads/$current_branch" -X DELETE 2>/dev/null || true
     fi
-    echo "合并完成"
-
-    # 获取合并后的最新 main
-    git fetch origin main
-
-    # 打 tag（基于 origin/main，不切换分支）
-    if sns_tag_exists "$target_tag"; then
-      echo "警告: tag $target_tag 已存在，跳过打 tag"
-    else
-      git tag -a "$target_tag" origin/main -m "Hotfix release $target_tag"
-      git push origin "$target_tag"
-      echo "已创建并推送 tag: $target_tag"
-    fi
+    echo "合并完成（变更已回流 main）"
 
     # 检测是否有活动中的 release 分支需要同步
     active_releases=$(sns_active_release_branches)
@@ -374,14 +372,13 @@ case "$branch_type" in
       echo "请手动执行上述命令完成 release 同步"
     fi
 
-    # 回到所属 worktree（hotfix 通常从 worktree 创建）
+    # 回到所属 worktree
     owning_worktree=""
     wt_num=$(pwd | grep -oP 'worktree-\K\d+')
     if [[ -n "$wt_num" ]]; then
       owning_worktree="worktree-$wt_num"
     fi
 
-    # 删除本地 hotfix 分支（已合并）
     git checkout "$owning_worktree" 2>/dev/null || true
     git branch -D "$current_branch" 2>/dev/null || true
 
