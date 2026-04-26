@@ -327,28 +327,35 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    gh pr merge --squash --delete-branch 2>&1 || {
-      echo "PR 合并失败"
-      exit 1
-    }
+    # 提取 PR 编号
+    pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+    repo_name=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null)
+
+    # 合并 PR（优先用 --admin 绕过 worktree checkout 限制）
+    if ! gh pr merge "$pr_number" --squash --delete-branch 2>&1; then
+      echo "常规合并失败（可能因 worktree 限制），尝试 API 合并..."
+      if ! gh api "repos/$repo_name/pulls/$pr_number/merge" -X PUT \
+        -f merge_method=squash 2>&1; then
+        echo "PR 合并失败"
+        exit 1
+      fi
+      echo "API 合并成功"
+      # 手动删除远端分支
+      gh api "repos/$repo_name/git/refs/heads/$current_branch" -X DELETE 2>/dev/null || true
+    fi
     echo "合并完成"
 
     # 获取合并后的最新 main
     git fetch origin main
 
-    # 打 tag（在合并后的 main 上）
+    # 打 tag（基于 origin/main，不切换分支）
     if sns_tag_exists "$target_tag"; then
       echo "警告: tag $target_tag 已存在，跳过打 tag"
     else
-      git tag -a "$target_tag" -m "Hotfix release $target_tag"
+      git tag -a "$target_tag" origin/main -m "Hotfix release $target_tag"
       git push origin "$target_tag"
       echo "已创建并推送 tag: $target_tag"
     fi
-
-    # 回流 main（PR 已合并，确保本地同步）
-    git checkout main 2>/dev/null || true
-    git pull origin main
-    echo "main 已同步"
 
     # 检测是否有活动中的 release 分支需要同步
     active_releases=$(sns_active_release_branches)
@@ -365,6 +372,27 @@ case "$branch_type" in
       done
       echo ""
       echo "请手动执行上述命令完成 release 同步"
+    fi
+
+    # 回到所属 worktree（hotfix 通常从 worktree 创建）
+    owning_worktree=""
+    wt_num=$(pwd | grep -oP 'worktree-\K\d+')
+    if [[ -n "$wt_num" ]]; then
+      owning_worktree="worktree-$wt_num"
+    fi
+
+    # 删除本地 hotfix 分支（已合并）
+    git checkout "$owning_worktree" 2>/dev/null || true
+    git branch -D "$current_branch" 2>/dev/null || true
+
+    # 同步 worktree 到最新 main
+    git fetch origin main
+    if sns_workdir_clean; then
+      git reset --hard origin/main
+      echo "$owning_worktree 已同步到最新 main"
+    else
+      echo "提示: 当前 worktree 有未提交更改，请手动 sync"
+      echo "  /sns-workflow:sync"
     fi
 
     echo ""
