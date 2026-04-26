@@ -355,23 +355,6 @@ case "$branch_type" in
     fi
     echo "合并完成（变更已回流 main）"
 
-    # 检测是否有活动中的 release 分支需要同步
-    active_releases=$(sns_active_release_branches)
-    if [[ -n "$active_releases" ]]; then
-      echo ""
-      echo "检测到活动 release 分支:"
-      echo "$active_releases" | while read rb; do
-        echo "  $rb"
-      done
-      echo ""
-      echo "重要: 以下 release 分支需要同步此 hotfix 修复:"
-      echo "$active_releases" | while read rb; do
-        echo "  git checkout $rb && git merge $target_tag"
-      done
-      echo ""
-      echo "请手动执行上述命令完成 release 同步"
-    fi
-
     # 回到所属 worktree
     owning_worktree=""
     wt_num=$(pwd | grep -oP 'worktree-\K\d+')
