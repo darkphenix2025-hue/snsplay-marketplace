@@ -341,21 +341,18 @@ case "$branch_type" in
     pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
     repo_name=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null)
 
-    # 合并 PR（优先常规方式，失败时 fallback 到 API）
-    if ! gh pr merge "$pr_number" --squash --delete-branch 2>&1; then
-      echo "常规合并失败（可能因 worktree 限制），尝试 API 合并..."
-      if ! gh api "repos/$repo_name/pulls/$pr_number/merge" -X PUT \
-        -f merge_method=squash 2>&1; then
-        echo "PR 合并失败"
-        exit 1
-      fi
-      echo "API 合并成功"
-      # 手动删除远端分支
-      gh api "repos/$repo_name/git/refs/heads/$current_branch" -X DELETE 2>/dev/null || true
+    # 用 API 合并（gh pr merge 会尝试 checkout main，在 worktree 下会失败）
+    if ! gh api "repos/$repo_name/pulls/$pr_number/merge" -X PUT \
+      -f merge_method=squash 2>&1; then
+      echo "PR 合并失败"
+      exit 1
     fi
-    echo "合并完成（变更已回流 main）"
+    echo "PR 已合并（API 方式）"
 
-    # 回到所属 worktree
+    # 删除远端 hotfix 分支
+    gh api "repos/$repo_name/git/refs/heads/$current_branch" -X DELETE 2>/dev/null || true
+
+    # 回到所属 worktree，删除本地 hotfix 分支
     owning_worktree=""
     wt_num=$(pwd | grep -oP 'worktree-\K\d+')
     if [[ -n "$wt_num" ]]; then
