@@ -9,7 +9,7 @@ allowed-tools: Bash
 
 在空闲 worktree 上同步到最新 main 并创建 feature 分支，进入 Feature 开发模式。feature 完成后通过 `/sns-workflow:commit-push-pr` 提交。
 
-**参数**: `<feature-name>` — 必填，feature 名称（如 `user-auth`、`payment`）。
+**参数**: `<feature-name>` — 可选，feature 名称（如 `user-auth`、`payment`）。省略时自动生成随机名称。支持中文名称，将自动转换为英文分支名（如 `用户认证` → `feature/user-auth`）。
 
 ---
 
@@ -39,23 +39,64 @@ fi
 
 ---
 
-## 步骤 2: 验证 feature 名称
+## 步骤 2: 解析并生成 feature 名称
 
 ```bash
-feature_name="${1:-}"
-if [[ -z "$feature_name" ]]; then
-  echo "用法: /sns-workflow:feature <feature-name>"
-  echo "示例: /sns-workflow:feature user-auth"
-  exit 1
+raw_name="${1:-}"
+
+if [[ -z "$raw_name" ]]; then
+  # 无参数: 自动生成随机英文名称
+  words=(auth payment user order search notification image analytics cache config deploy feature module api service webhook template component workflow)
+  w1=${words[$((RANDOM % ${#words[@]}))]}
+  w2=${words[$((RANDOM % ${#words[@]}))]}
+  suffix=$(date +%s | tail -c 4)
+  feature_name="${w1}-${w2}-${suffix}"
+  echo "未提供 feature 名称，自动生成: $feature_name"
+else
+  # 有参数: 检查是否为纯英文合法名称
+  if [[ "$raw_name" =~ ^[a-z0-9-]+$ ]]; then
+    feature_name="$raw_name"
+  else
+    # 包含非英文字符（中文等），尝试转换为拼音
+    converted=""
+
+    # 尝试使用 pinyin 工具
+    if command -v pinyin &> /dev/null; then
+      converted=$(pinyin -s '-' "$raw_name" 2>/dev/null | head -1 | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+    fi
+
+    # 尝试使用 lux 工具（ibus 拼音）
+    if [[ -z "$converted" ]] && command -v lux &> /dev/null; then
+      converted=$(echo "$raw_name" | lux 2>/dev/null | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+    fi
+
+    # 都没有工具时，使用随机名称并提示
+    if [[ -z "$converted" ]]; then
+      words=(auth payment user order search notification image analytics cache config deploy feature module api service webhook template component workflow)
+      w1=${words[$((RANDOM % ${#words[@]}))]}
+      w2=${words[$((RANDOM % ${#words[@]}))]}
+      suffix=$(date +%s | tail -c 4)
+      feature_name="${w1}-${w2}-${suffix}"
+      echo "未安装 pinyin 转换工具，自动生成: $feature_name"
+      echo "如需中文自动转换，请安装: pip install pypinyin 或使用 pinyin 命令行工具"
+    else
+      feature_name="$converted"
+      echo "中文名称 '$raw_name' 转换为: $feature_name"
+    fi
+  fi
 fi
 
-# 名称格式: 只允许小写字母、数字、连字符
-if [[ ! "$feature_name" =~ ^[a-z0-9-]+$ ]]; then
-  echo "错误: feature 名称只允许小写字母、数字、连字符 (如 user-auth)"
-  exit 1
+# 截取有效部分
+feature_name=$(echo "$feature_name" | cut -c1-50)
+
+# 确保最终名称格式合法
+if [[ ! "$feature_name" =~ ^[a-z0-9][a-z0-9-]*[a-z0-9]$ ]] && [[ ! "$feature_name" =~ ^[a-z0-9]$ ]]; then
+  # 清理后仍不合法，用随机名称兜底
+  feature_name="feat-$(date +%s | tail -c 4)"
 fi
 
 target_branch="feature/$feature_name"
+echo "分支名称: $target_branch"
 ```
 
 ---

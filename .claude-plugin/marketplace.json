@@ -27,16 +27,17 @@
         "./skills/feature",
         "./skills/hotfix",
         "./skills/implement",
+        "./skills/merge-pr",
         "./skills/once",
         "./skills/plan",
-        "./skills/setup",
         "./skills/publish",
         "./skills/rca",
         "./skills/release",
         "./skills/requirements",
         "./skills/review",
-        "./skills/sync",
-        "./skills/status"
+        "./skills/setup",
+        "./skills/status",
+        "./skills/sync"
       ]
     }
   ]

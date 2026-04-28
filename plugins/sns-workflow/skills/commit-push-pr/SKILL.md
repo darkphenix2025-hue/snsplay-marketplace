@@ -1,13 +1,13 @@
 ---
 name: sns-workflow:commit-push-pr
-description: 统一提交+推送+PR+合并+清理 —— 自动检测分支类型，执行对应的完整流程。main 直接提交，release 自动打预发布 tag，worktree/feature/hotfix 走 PR 流程。支持 --rc 参数切换 beta→rc 阶段，--backflow 参数回流 main。
+description: 统一提交+推送+创建PR —— 自动检测分支类型，执行 commit → push → 创建 PR。main 直接提交，release 自动打预发布 tag，worktree/feature/hotfix 创建 PR 后返回，合并与分支清理由 merge-pr 在主线完成。支持 --rc 参数切换 beta→rc 阶段，--backflow 参数回流 main。
 user-invocable: true
 allowed-tools: Bash
 ---
 
-# 统一提交+推送+PR+合并+清理
+# 统一提交+推送+创建PR
 
-自动检测当前分支类型，执行对应的 commit → push → PR → merge → 清理流程。
+自动检测当前分支类型，执行对应的 commit → push → 创建 PR 流程。PR 合并与分支清理统一由 `/sns-workflow:merge-pr` 在主线完成。
 
 **五路路由矩阵**:
 
@@ -15,9 +15,9 @@ allowed-tools: Bash
 |---------|------|---------|
 | `main` | commit + push（直接提交） | 不产生 tag |
 | `release/x.y.z` | commit + push + 自动打预发布 tag | 生成 `vX.Y.Z-beta` → `beta.2` → ... → `rc.1` → ... |
-| `worktree-NNN` | commit → PR → merge → reset | 不产生 tag |
-| `feature/*` | commit → PR → merge → 删除分支 → 回 worktree | 不产生 tag |
-| `hotfix/x.y.z` | commit → PR → merge → 打 tag → 回流 | 生成正式 tag vX.Y.Z |
+| `worktree-NNN` | commit → push → 创建 PR | 不产生 tag |
+| `feature/*` | commit → push → 创建 PR → 回 worktree | 不产生 tag |
+| `hotfix/x.y.z` | commit → push → 打 tag → 创建 PR → 回 worktree | 生成正式 tag vX.Y.Z |
 
 **`--rc` 参数**: 在 release 分支上使用时，将 beta 阶段切换到 rc 阶段（如 `v1.5.0-beta.3` → `v1.5.0-rc.1`）。
 
@@ -218,7 +218,7 @@ case "$branch_type" in
 
   worktree)
     echo ""
-    echo "=== worktree 路径: PR → main → reset ==="
+    echo "=== worktree 路径: commit → push → 创建 PR ==="
 
     pr_url=$(gh pr create --base main --head "$current_branch" \
       --title "chore: $current_branch → main" \
@@ -227,27 +227,14 @@ case "$branch_type" in
       exit 1
     }
     echo "PR 已创建: $pr_url"
-
-    gh pr merge --squash 2>&1 || {
-      echo "PR 合并失败"
-      exit 1
-    }
-    echo "合并完成"
-
-    # 安全校验: reset 前必须确认工作区干净
-    git fetch origin main
-    if ! sns_workdir_clean; then
-      echo "警告: 合并后工作区不干净，跳过自动 reset"
-      echo "请手动处理: git stash && git reset --hard origin/main && git stash pop"
-    else
-      git reset --hard origin/main
-      echo "worktree 已 reset 到最新 main"
-    fi
+    echo ""
+    echo "后续操作:"
+    echo "  /sns-workflow:merge-pr  → 在 main 上合并所有待合并 PR"
     ;;
 
   feature)
     echo ""
-    echo "=== feature 路径: PR → main → 删除分支 → 回 worktree ==="
+    echo "=== feature 路径: commit → push → 创建 PR ==="
 
     # 确定所属 worktree（通过 git worktree list 查找）
     owning_worktree=""
@@ -255,7 +242,6 @@ case "$branch_type" in
       wt_path=$(echo "$wt_line" | awk '{print $1}')
       wt_branch=$(echo "$wt_line" | awk '{print $2}' | tr -d '[]')
       if [[ "$wt_branch" == "$current_branch" ]]; then
-        # feature 分支所在的 worktree 路径
         owning_worktree=$(basename "$wt_path")
         break
       fi
@@ -279,34 +265,22 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    gh pr merge --squash --delete-branch 2>&1 || {
-      echo "PR 合并失败"
-      exit 1
-    }
-    echo "合并完成"
-
     # 回到所属 worktree
     if [[ -n "$owning_worktree" ]]; then
       git checkout "$owning_worktree" 2>/dev/null || echo "警告: 无法切回 $owning_worktree，请手动切换"
-
-      # 同步 worktree 到最新 main
-      git fetch origin main
-      if sns_workdir_clean; then
-        git reset --hard origin/main
-        echo "$owning_worktree 已同步到最新 main"
-      else
-        echo "警告: $owning_worktree 工作区不干净，跳过自动 reset"
-      fi
     else
       echo "警告: 无法确定所属 worktree，请手动切回"
     fi
 
-    echo "feature 分支 $current_branch 已合并并清理"
+    echo "feature 分支 $current_branch 已提交 PR"
+    echo ""
+    echo "后续操作:"
+    echo "  /sns-workflow:merge-pr  → 在 main 上合并所有待合并 PR（含分支清理）"
     ;;
 
   hotfix)
     echo ""
-    echo "=== hotfix 路径: 打 tag → PR 回流 main ==="
+    echo "=== hotfix 路径: 打 tag → 创建 PR ==="
 
     # 从分支名提取版本号 (hotfix/1.6.1 → v1.6.1)
     branch_version=$(echo "$current_branch" | sed 's/^hotfix\///')
@@ -328,7 +302,7 @@ case "$branch_type" in
       echo "已创建并推送 tag: $target_tag（线上补丁完成）"
     fi
 
-    # 2. PR 回流 main（类似 feature 合并，防止修改丢失）
+    # 2. 创建 PR 回流 main
     pr_url=$(gh pr create --base main --head "$current_branch" \
       --title "hotfix: $target_tag" \
       --body "Hotfix backflow to main for version $target_tag" 2>&1) || {
@@ -337,43 +311,22 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    # 提取 PR 编号
-    pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
-    repo_name=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null)
-
-    # 用 API 合并（gh pr merge 会尝试 checkout main，在 worktree 下会失败）
-    if ! gh api "repos/$repo_name/pulls/$pr_number/merge" -X PUT \
-      -f merge_method=squash 2>&1; then
-      echo "PR 合并失败"
-      exit 1
-    fi
-    echo "PR 已合并（API 方式）"
-
-    # 删除远端 hotfix 分支
-    gh api "repos/$repo_name/git/refs/heads/$current_branch" -X DELETE 2>/dev/null || true
-
-    # 回到所属 worktree，删除本地 hotfix 分支
+    # 回到所属 worktree
     owning_worktree=""
     wt_num=$(pwd | grep -oP 'worktree-\K\d+')
     if [[ -n "$wt_num" ]]; then
       owning_worktree="worktree-$wt_num"
     fi
 
-    git checkout "$owning_worktree" 2>/dev/null || true
-    git branch -D "$current_branch" 2>/dev/null || true
-
-    # 同步 worktree 到最新 main
-    git fetch origin main
-    if sns_workdir_clean; then
-      git reset --hard origin/main
-      echo "$owning_worktree 已同步到最新 main"
-    else
-      echo "提示: 当前 worktree 有未提交更改，请手动 sync"
-      echo "  /sns-workflow:sync"
+    if [[ -n "$owning_worktree" ]]; then
+      git checkout "$owning_worktree" 2>/dev/null || echo "警告: 无法切回 $owning_worktree，请手动切换"
     fi
 
     echo ""
-    echo "hotfix $target_tag 已发布并回流 main"
+    echo "hotfix $target_tag 已发布"
+    echo ""
+    echo "后续操作:"
+    echo "  /sns-workflow:merge-pr  → 在 main 上合并所有待合并 PR（含分支清理）"
     ;;
 
 esac
