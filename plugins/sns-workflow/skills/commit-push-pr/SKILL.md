@@ -236,7 +236,7 @@ case "$branch_type" in
     echo ""
     echo "=== feature 路径: commit → push → 创建 PR ==="
 
-    # 确定所属 worktree（通过 git worktree list 查找）
+    # 确定所属 worktree（通过 git worktree list 查找当前 feature 分支所在的 worktree）
     owning_worktree=""
     while IFS= read -r wt_line; do
       wt_path=$(echo "$wt_line" | awk '{print $1}')
@@ -247,12 +247,9 @@ case "$branch_type" in
       fi
     done < <(git worktree list 2>/dev/null | tail -n +1)
 
-    # 备选方案: 从目录路径提取 worktree 编号
+    # 备选方案: 从 PWD 提取 worktree 名称
     if [[ -z "$owning_worktree" ]]; then
-      wt_num=$(pwd | grep -oP 'worktree-\K\d+')
-      if [[ -n "$wt_num" ]]; then
-        owning_worktree="worktree-$wt_num"
-      fi
+      owning_worktree=$(basename "$(pwd)")
     fi
 
     feat_name=$(echo "$current_branch" | sed 's/^feature\///')
@@ -265,9 +262,11 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    # 回到所属 worktree
+    # 切回工作分支（checkout -B 强制重建到 origin/main，恢复空闲状态）
     if [[ -n "$owning_worktree" ]]; then
-      git checkout "$owning_worktree" 2>/dev/null || echo "警告: 无法切回 $owning_worktree，请手动切换"
+      git fetch origin main
+      git checkout -B "$owning_worktree" origin/main
+      echo "已切回 worktree 分支: $owning_worktree"
     else
       echo "警告: 无法确定所属 worktree，请手动切回"
     fi
@@ -311,16 +310,11 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    # 回到所属 worktree
-    owning_worktree=""
-    wt_num=$(pwd | grep -oP 'worktree-\K\d+')
-    if [[ -n "$wt_num" ]]; then
-      owning_worktree="worktree-$wt_num"
-    fi
-
-    if [[ -n "$owning_worktree" ]]; then
-      git checkout "$owning_worktree" 2>/dev/null || echo "警告: 无法切回 $owning_worktree，请手动切换"
-    fi
+    # 切回工作分支（与 feature 路径一致）
+    owning_worktree=$(basename "$(pwd)")
+    git fetch origin main
+    git checkout -B "$owning_worktree" origin/main
+    echo "已切回 worktree 分支: $owning_worktree"
 
     echo ""
     echo "hotfix $target_tag 已发布"

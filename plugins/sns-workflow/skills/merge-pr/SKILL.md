@@ -87,8 +87,9 @@ for row in $(echo "$pr_list" | jq -c '.[]'); do
       failed_list="$failed_list  #$pr_number $pr_title ($pr_branch)\n"
     fi
   else
-    # feature/hotfix 等分支: 合并并删除远端分支
-    if gh pr merge "$pr_number" --squash --delete-branch 2>&1; then
+    # feature/hotfix 等分支: 合并，手动删远端分支（避免 --delete-branch 因 worktree 占用而失败）
+    if gh pr merge "$pr_number" --squash 2>&1; then
+      git push origin --delete "$pr_branch" 2>/dev/null || true
       echo "  已合并: #$pr_number ($pr_branch)"
       merged=$((merged + 1))
     else
@@ -114,6 +115,22 @@ for branch in $(git branch --merged main --format='%(refname:short)' | grep -E '
   if [[ "$branch" == "$current_branch" ]]; then
     continue
   fi
+
+  # 检查该分支是否被 worktree 占用
+  wt_line=$(git worktree list 2>/dev/null | grep "\\[$branch\\]")
+  if [[ -n "$wt_line" ]]; then
+    wt_path=$(echo "$wt_line" | awk '{print $1}')
+    if [[ -n "$wt_path" ]]; then
+      dir_name=$(basename "$wt_path")
+      wt_num=$(echo "$dir_name" | grep -oP '[0-9]+')
+      if [[ -n "$wt_num" ]]; then
+        wt_branch="worktree-$wt_num"
+        git -C "$wt_path" fetch origin main
+        git -C "$wt_path" checkout -B "$wt_branch" origin/main 2>/dev/null
+      fi
+    fi
+  fi
+
   git branch -d "$branch" 2>/dev/null && {
     cleaned="$cleaned  $branch\n"
   }

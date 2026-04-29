@@ -10,7 +10,7 @@ sns_branch_type() {
 
   case "$branch" in
     main)         echo "main" ;;
-    worktree-*)   echo "worktree" ;;
+    worker-*)  echo "worktree" ;;
     feature/*)    echo "feature" ;;
     release/*)    echo "release" ;;
     hotfix/*)     echo "hotfix" ;;
@@ -31,7 +31,7 @@ sns_worktree_is_idle() {
   branch=$(git branch --show-current 2>/dev/null)
 
   # 必须在 worktree 分支上
-  [[ ! "$branch" =~ ^worktree- ]] && return 1
+  [[ ! "$branch" =~ ^worker- ]] && return 1
 
   # 工作区必须干净
   sns_workdir_clean || return 1
