@@ -80,21 +80,32 @@ fi
 
 ```bash
 # 收集当前已使用的 worker-NNN 编号
+# 同时扫描 git worktree list 和文件系统目录（兼容已 prune 但目录仍存在的情况）
 next_num=1
 if [[ -z "$CUSTOM_SUFFIX" ]]; then
   max_num=0
+
+  # 扫描 git worktree list
   while IFS= read -r wt_line; do
     wt_path=$(echo "$wt_line" | awk '{print $1}')
     dir_name=$(basename "$wt_path")
     if [[ "$dir_name" =~ ^worker-([0-9]+)$ ]]; then
-      num="${BASH_REMATCH[1]}"
-      # 去掉前导零进行比较
-      num=$((10#$num))
-      if [[ "$num" -gt "$max_num" ]]; then
-        max_num="$num"
-      fi
+      num=$((10#${BASH_REMATCH[1]}))
+      [[ "$num" -gt "$max_num" ]] && max_num="$num"
     fi
   done < <(git worktree list 2>/dev/null)
+
+  # 扫描文件系统目录（覆盖 worktree 已 prune 但目录残留的情况）
+  if [[ -d ".claude/worktrees" ]]; then
+    for dir in .claude/worktrees/worker-*; do
+      dir_name=$(basename "$dir")
+      if [[ "$dir_name" =~ ^worker-([0-9]+)$ ]]; then
+        num=$((10#${BASH_REMATCH[1]}))
+        [[ "$num" -gt "$max_num" ]] && max_num="$num"
+      fi
+    done
+  fi
+
   next_num=$((max_num + 1))
 fi
 ```
