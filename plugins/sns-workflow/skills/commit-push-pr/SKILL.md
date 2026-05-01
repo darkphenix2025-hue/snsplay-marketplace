@@ -15,7 +15,7 @@ allowed-tools: Bash
 |---------|------|---------|
 | `main` | commit + push（直接提交） | 不产生 tag |
 | `release/x.y.z` | commit + push + 自动打预发布 tag | 生成 `vX.Y.Z-beta` → `beta.2` → ... → `rc.1` → ... |
-| `worktree-NNN` | commit → push → 创建 PR | 不产生 tag |
+| `worktree-*` | commit → push → 创建 PR | 不产生 tag |
 | `feature/*` | commit → push → 创建 PR → 回 worktree | 不产生 tag |
 | `hotfix/x.y.z` | commit → push → 打 tag → 创建 PR → 回 worktree | 生成正式 tag vX.Y.Z |
 
@@ -53,7 +53,7 @@ echo "当前分支: $current_branch (类型: $branch_type)"
 # 不支持 unknown 分支
 if [[ "$branch_type" == "unknown" ]]; then
   echo "错误: 不支持的分支类型: $current_branch"
-  echo "支持的分支: main, release/*, worktree-NNN, feature/*, hotfix/*"
+  echo "支持的分支: main, release/*, worktree-*, feature/*, hotfix/*"
   exit 1
 fi
 
@@ -133,6 +133,23 @@ fi
 ## 步骤 4: 根据分支类型执行 PR + Merge + 清理
 
 ```bash
+# 辅助函数: 从目录名查找 worktree 分支名
+# git worktree list 输出格式: /path/to/dir abc1234 [branch-name] prunable
+# 第三列是分支名（含方括号）
+find_worktree_branch_by_dir() {
+  local target_dir="$1"
+  while IFS= read -r wt_line; do
+    wt_path=$(echo "$wt_line" | awk '{print $1}')
+    # 匹配目录路径尾部（兼容不同宿主环境的前缀）
+    if [[ "$wt_path" == *"/$target_dir" ]] || [[ "$wt_path" == */"$target_dir"/* ]]; then
+      # 第三列含方括号，提取分支名
+      echo "$wt_line" | awk '{print $3}' | tr -d '[]'
+      return 0
+    fi
+  done < <(git worktree list 2>/dev/null)
+  return 1
+}
+
 case "$branch_type" in
 
   main)
@@ -236,21 +253,9 @@ case "$branch_type" in
     echo ""
     echo "=== feature 路径: commit → push → 创建 PR ==="
 
-    # 确定所属 worktree（通过 git worktree list 查找当前 feature 分支所在的 worktree）
-    owning_worktree=""
-    while IFS= read -r wt_line; do
-      wt_path=$(echo "$wt_line" | awk '{print $1}')
-      wt_branch=$(echo "$wt_line" | awk '{print $2}' | tr -d '[]')
-      if [[ "$wt_branch" == "$current_branch" ]]; then
-        owning_worktree=$(basename "$wt_path")
-        break
-      fi
-    done < <(git worktree list 2>/dev/null | tail -n +1)
-
-    # 备选方案: 从 PWD 提取 worktree 名称
-    if [[ -z "$owning_worktree" ]]; then
-      owning_worktree=$(basename "$(pwd)")
-    fi
+    # 确定所属 worktree 分支（从当前目录名查找 worktree 分支名）
+    wt_dir_name=$(basename "$(pwd)")
+    owning_wt_branch=$(find_worktree_branch_by_dir "$wt_dir_name")
 
     feat_name=$(echo "$current_branch" | sed 's/^feature\///')
 
@@ -262,13 +267,13 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    # 切回工作分支（checkout -B 强制重建到 origin/main，恢复空闲状态）
-    if [[ -n "$owning_worktree" ]]; then
+    # 切回 worktree 分支（checkout -B 强制重建到 origin/main，恢复空闲状态）
+    if [[ -n "$owning_wt_branch" ]]; then
       git fetch origin main
-      git checkout -B "$owning_worktree" origin/main
-      echo "已切回 worktree 分支: $owning_worktree"
+      git checkout -B "$owning_wt_branch" origin/main
+      echo "已切回 worktree 分支: $owning_wt_branch"
     else
-      echo "警告: 无法确定所属 worktree，请手动切回"
+      echo "警告: 无法确定所属 worktree 分支，请手动切回"
     fi
 
     echo "feature 分支 $current_branch 已提交 PR"
@@ -310,11 +315,17 @@ case "$branch_type" in
     }
     echo "PR 已创建: $pr_url"
 
-    # 切回工作分支（与 feature 路径一致）
-    owning_worktree=$(basename "$(pwd)")
-    git fetch origin main
-    git checkout -B "$owning_worktree" origin/main
-    echo "已切回 worktree 分支: $owning_worktree"
+    # 切回 worktree 分支（与 feature 路径一致）
+    wt_dir_name=$(basename "$(pwd)")
+    owning_wt_branch=$(find_worktree_branch_by_dir "$wt_dir_name")
+
+    if [[ -n "$owning_wt_branch" ]]; then
+      git fetch origin main
+      git checkout -B "$owning_wt_branch" origin/main
+      echo "已切回 worktree 分支: $owning_wt_branch"
+    else
+      echo "警告: 无法确定所属 worktree 分支，请手动切回"
+    fi
 
     echo ""
     echo "hotfix $target_tag 已发布"
