@@ -108,7 +108,7 @@ created=0
 failed=0
 created_list=""
 
-for (( i=0; i<CREATE_COUNT; i++ )); do
+while [[ "$created" -lt "$CREATE_COUNT" ]]; do
   if [[ -n "$CUSTOM_SUFFIX" ]]; then
     dir_name="$CUSTOM_SUFFIX"
     wt_branch="worktree-$CUSTOM_SUFFIX"
@@ -122,25 +122,34 @@ for (( i=0; i<CREATE_COUNT; i++ )); do
   # 检查冲突
   if [[ -d "$wt_path" ]]; then
     echo "跳过: 目录 $wt_path 已存在"
-    if [[ -z "$CUSTOM_SUFFIX" ]]; then
-      next_num=$((next_num + 1))
+    if [[ -n "$CUSTOM_SUFFIX" ]]; then
+      echo "失败: 自定义目录 $wt_path 已存在"
+      failed=1
+      break
     fi
+    next_num=$((next_num + 1))
     continue
   fi
 
   if git show-ref --verify --quiet "refs/heads/$wt_branch" 2>/dev/null; then
     echo "跳过: 本地分支 $wt_branch 已存在"
-    if [[ -z "$CUSTOM_SUFFIX" ]]; then
-      next_num=$((next_num + 1))
+    if [[ -n "$CUSTOM_SUFFIX" ]]; then
+      echo "失败: 本地分支 $wt_branch 已存在"
+      failed=1
+      break
     fi
+    next_num=$((next_num + 1))
     continue
   fi
 
   if git ls-remote origin "refs/heads/$wt_branch" 2>/dev/null | grep -q .; then
     echo "跳过: 远端分支 $wt_branch 已存在"
-    if [[ -z "$CUSTOM_SUFFIX" ]]; then
-      next_num=$((next_num + 1))
+    if [[ -n "$CUSTOM_SUFFIX" ]]; then
+      echo "失败: 远端分支 $wt_branch 已存在"
+      failed=1
+      break
     fi
+    next_num=$((next_num + 1))
     continue
   fi
 
@@ -157,10 +166,10 @@ for (( i=0; i<CREATE_COUNT; i++ )); do
   else
     echo "失败: 创建 $wt_path ($wt_branch)"
     failed=$((failed + 1))
-    # 自定义后缀失败时不再重试
     if [[ -n "$CUSTOM_SUFFIX" ]]; then
       break
     fi
+    next_num=$((next_num + 1))
   fi
 done
 ```
