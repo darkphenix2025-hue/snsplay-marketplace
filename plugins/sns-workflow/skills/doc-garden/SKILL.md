@@ -47,6 +47,9 @@ echo "当前分支: $current_branch | 模式: $MODE"
 ## 步骤 2: 检测是否首次运行
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/doc-arch-template.sh"
+
 ROOT=$(_sns_doc_root)
 IS_FIRST_RUN=false
 
@@ -84,6 +87,9 @@ fi
 ## 步骤 4: 检查 CLAUDE.md 地图
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/doc-arch-template.sh"
+
 ROOT=$(_sns_doc_root)
 if [[ -f "$ROOT/CLAUDE.md" ]]; then
   LINES=$(wc -l < "$ROOT/CLAUDE.md")
@@ -106,6 +112,9 @@ fi
 ## 步骤 5: 运行架构检查
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/doc-arch-template.sh"
+
 echo ""
 echo "=== 文档架构检查 ==="
 CHECK_OUTPUT=$(sns_doc_check --report 2>&1)
@@ -125,6 +134,9 @@ fi
 如果 `MODE=fix` 或 `MODE=auto`，执行修复：
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/doc-arch-template.sh"
+
 if [[ "$MODE" == "fix" ]] || [[ "$MODE" == "auto" ]]; then
   if [[ "$CHECK_EXIT" -ne 0 ]]; then
     echo ""
