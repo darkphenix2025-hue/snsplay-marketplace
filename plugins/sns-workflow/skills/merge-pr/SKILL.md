@@ -71,8 +71,8 @@ echo ""
 ```bash
 merged=0
 failed=0
+skipped=0
 failed_list=""
-worktree_branches=""
 
 for row in $(echo "$pr_list" | jq -c '.[]'); do
   pr_number=$(echo "$row" | jq -r '.number')
@@ -81,9 +81,28 @@ for row in $(echo "$pr_list" | jq -c '.[]'); do
 
   echo "--- 合并 PR #$pr_number: $pr_title ---"
 
+  # 重新验证 PR 状态（可能在此期间被手动合并/关闭）
+  pr_state=$(gh pr view "$pr_number" --json state,isMergeable,mergeable,mergedAt 2>/dev/null | jq -r '.state')
+  if [[ "$pr_state" != "OPEN" ]]; then
+    echo "  跳过: PR 已关闭或已合并 (状态: $pr_state)"
+    skipped=$((skipped + 1))
+    echo ""
+    continue
+  fi
+
+  # 检查可合并性
+  is_mergeable=$(gh pr view "$pr_number" --json mergeable,state 2>/dev/null | jq -r '.mergeable // "UNKNOWN"')
+  if [[ "$is_mergeable" == "CONFLICTING" ]]; then
+    echo "  跳过: PR 存在合并冲突，请手动解决"
+    failed=$((failed + 1))
+    failed_list="$failed_list  #$pr_number $pr_title ($pr_branch) — 合并冲突\n"
+    echo ""
+    continue
+  fi
+
   if [[ "$pr_branch" =~ ^worktree- ]]; then
     # worktree 分支: 只合并不删除，记录待 reset
-    if gh pr merge "$pr_number" --squash 2>&1; then
+    if gh pr merge "$pr_number" --squash --yes 2>&1; then
       echo "  已合并: #$pr_number ($pr_branch)"
       merged=$((merged + 1))
       worktree_branches="$worktree_branches $pr_branch"
@@ -95,7 +114,7 @@ for row in $(echo "$pr_list" | jq -c '.[]'); do
   else
     # feature/hotfix 等分支: 合并 + 删除远端分支
     # 不使用 --delete-branch，手动删远端（避免 worktree 占用导致本地删除失败）
-    if gh pr merge "$pr_number" --squash 2>&1; then
+    if gh pr merge "$pr_number" --squash --yes 2>&1; then
       git push origin --delete "$pr_branch" 2>/dev/null || true
       echo "  已合并: #$pr_number ($pr_branch)"
       merged=$((merged + 1))
@@ -187,6 +206,9 @@ done
 echo ""
 echo "=== merge-pr 完成 ==="
 echo "已合并: $merged 个 PR"
+if [[ "$skipped" -gt 0 ]]; then
+  echo "已跳过: $skipped 个 PR（已关闭/已合并）"
+fi
 if [[ "$failed" -gt 0 ]]; then
   echo "失败: $failed 个 PR:"
   echo -e "$failed_list"
