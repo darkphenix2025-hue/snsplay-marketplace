@@ -1,0 +1,244 @@
+<svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowProd" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#F57C00"/>
+    </marker>
+    <marker id="arrowHotfix" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#F44336"/>
+    </marker>
+    <linearGradient id="mainProd" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="prodProd" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9800;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#F57C00;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="hotfixProd" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F44336;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#C62828;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#333">生产环境同步与热修复流程</text>
+  <text x="700" y="60" text-anchor="middle" font-size="14" fill="#666">main → production 发布流 + production → main 热修复流</text>
+
+  <!-- Normal Release Flow -->
+  <g transform="translate(50, 80)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#2E7D32">正常发布流程：main → production</text>
+    <rect x="0" y="0" width="1300" height="180" rx="10" fill="#E8F5E9" stroke="#4CAF50" stroke-width="1"/>
+
+    <!-- Main Branch -->
+    <g transform="translate(20, 25)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main</text>
+      <rect x="0" y="0" width="700" height="40" rx="5" fill="#C8E6C9" stroke="#2E7D32"/>
+      <circle cx="30" cy="20" r="8" fill="#4CAF50"/>
+      <text x="30" y="25" text-anchor="middle" font-size="10" fill="white">A</text>
+      <line x1="38" y1="20" x2="150" y2="20" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="170" cy="20" r="9" fill="#2E7D32"/>
+      <text x="170" y="25" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <line x1="179" y1="20" x2="290" y2="20" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="310" cy="20" r="9" fill="#2E7D32"/>
+      <text x="310" y="25" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <line x1="319" y1="20" x2="430" y2="20" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="450" cy="20" r="10" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+      <text x="450" y="25" text-anchor="middle" font-size="10" fill="white">C</text>
+      <text x="480" y="25" font-size="10" fill="#2E7D32">← 准备发布</text>
+    </g>
+
+    <!-- Release Arrow -->
+    <path d="M 450 65 L 450 100 L 200 100 L 200 130" stroke="#FF9800" stroke-width="3" fill="none" marker-end="url(#arrowProd)"/>
+    <text x="350" y="90" font-size="11" fill="#F57C00" font-family="monospace">git tag -a v1.2.0</text>
+    <text x="350" y="108" font-size="11" fill="#F57C00" font-family="monospace">git push origin v1.2.0</text>
+
+    <!-- Production Branch -->
+    <g transform="translate(20, 135)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#F57C00">production</text>
+      <rect x="0" y="0" width="700" height="40" rx="5" fill="#FFE0B2" stroke="#FF9800"/>
+      <circle cx="30" cy="20" r="8" fill="#FF9800"/>
+      <text x="30" y="25" text-anchor="middle" font-size="10" fill="white">A</text>
+      <line x1="38" y1="20" x2="150" y2="20" stroke="#FF9800" stroke-width="2"/>
+      <circle cx="170" cy="20" r="9" fill="#F57C00"/>
+      <text x="170" y="25" text-anchor="middle" font-size="10" fill="white">B1</text>
+      <line x1="179" y1="20" x2="290" y2="20" stroke="#FF9800" stroke-width="2"/>
+      <circle cx="310" cy="20" r="9" fill="#F57C00"/>
+      <text x="310" y="25" text-anchor="middle" font-size="10" fill="white">B2</text>
+      <text x="340" y="25" font-size="10" fill="#F57C00">← 已发布到线上</text>
+    </g>
+
+    <!-- Command Box -->
+    <g transform="translate(750, 25)">
+      <rect x="0" y="0" width="520" height="150" rx="8" fill="#FFF3E0" stroke="#FF9800"/>
+      <text x="260" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#F57C00">发布命令</text>
+
+      <text x="20" y="50" font-size="11" fill="#333" font-family="monospace"># 1. 确保 main 是最新的</text>
+      <text x="20" y="70" font-size="10" fill="#333" font-family="monospace">git pull origin main</text>
+
+      <text x="20" y="90" font-size="11" fill="#2E7D32" font-family="monospace"># 2. 打标签并发布</text>
+      <text x="20" y="110" font-size="10" fill="#333" font-family="monospace">git tag -a v1.2.0 -m "Release v1.2.0"</text>
+      <text x="20" y="128" font-size="10" fill="#333" font-family="monospace">git push origin v1.2.0</text>
+
+      <text x="20" y="145" font-size="10" fill="#F57C00" font-family="monospace"># 3. 生产环境 checkout 标签</text>
+    </g>
+  </g>
+
+  <!-- Hotfix Flow -->
+  <g transform="translate(50, 280)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#C62828">热修复流程：production 发现 bug → 修复 → 同步回 main</text>
+    <rect x="0" y="0" width="1300" height="220" rx="10" fill="#FFEBEE" stroke="#F44336" stroke-width="1"/>
+
+    <!-- Before Hotfix -->
+    <g transform="translate(20, 25)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#333">状态：生产环境发现紧急 bug</text>
+      <rect x="0" y="0" width="1260" height="70" rx="5" fill="#FFCDD2" stroke="#F44336"/>
+
+      <!-- Main -->
+      <g transform="translate(20, 10)">
+        <text x="0" y="-5" font-size="10" font-weight="bold" fill="#2E7D32">main</text>
+        <rect x="0" y="0" width="550" height="25" rx="3" fill="#E8F5E9" stroke="#4CAF50"/>
+        <circle cx="20" cy="12.5" r="5" fill="#4CAF50"/>
+        <text x="20" y="17" text-anchor="middle" font-size="7" fill="white">A</text>
+        <line x1="25" y1="12.5" x2="200" y2="12.5" stroke="#4CAF50" stroke-width="2"/>
+        <circle cx="215" cy="12.5" r="6" fill="#2E7D32"/>
+        <text x="215" y="17" text-anchor="middle" font-size="7" fill="white">B1</text>
+        <line x1="221" y1="12.5" x2="330" y2="12.5" stroke="#4CAF50" stroke-width="2"/>
+        <circle cx="345" cy="12.5" r="6" fill="#2E7D32"/>
+        <text x="345" y="17" text-anchor="middle" font-size="7" fill="white">B2</text>
+        <line x1="351" y1="12.5" x2="525" y2="12.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="3,2"/>
+        <text x="540" y="17" font-size="9" fill="#4CAF50">开发中...</text>
+      </g>
+
+      <!-- Production with bug -->
+      <g transform="translate(20, 40)">
+        <text x="0" y="-5" font-size="10" font-weight="bold" fill="#F57C00">production (v1.2.0)</text>
+        <rect x="0" y="0" width="550" height="25" rx="3" fill="#FFE0B2" stroke="#FF9800"/>
+        <circle cx="20" cy="12.5" r="5" fill="#FF9800"/>
+        <text x="20" y="17" text-anchor="middle" font-size="7" fill="white">A</text>
+        <line x1="25" y1="12.5" x2="200" y2="12.5" stroke="#FF9800" stroke-width="2"/>
+        <circle cx="215" cy="12.5" r="6" fill="#F57C00"/>
+        <text x="215" y="17" text-anchor="middle" font-size="7" fill="white">B1</text>
+        <line x1="221" y1="12.5" x2="330" y2="12.5" stroke="#FF9800" stroke-width="2"/>
+        <circle cx="345" cy="12.5" r="6" fill="#F44336" stroke="#C62828" stroke-width="2"/>
+        <text x="345" y="17" text-anchor="middle" font-size="7" fill="white">B2</text>
+        <text x="360" y="17" font-size="9" fill="#F44336">⚠️ BUG!</text>
+      </g>
+    </g>
+
+    <!-- Hotfix Process -->
+    <g transform="translate(20, 105)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#C62828">热修复步骤</text>
+      <rect x="0" y="0" width="1260" height="100" rx="5" fill="#FFCDD2" stroke="#C62828"/>
+
+      <!-- Step 1 -->
+      <g transform="translate(20, 15)">
+        <text x="0" y="0" font-size="11" font-weight="bold" fill="#C62828">步骤 1: 从 production 创建 hotfix 分支</text>
+        <text x="20" y="20" font-size="10" fill="#333" font-family="monospace">git checkout production</text>
+        <text x="20" y="36" font-size="10" fill="#333" font-family="monospace">git checkout -b hotfix/bug-fix-b2</text>
+      </g>
+
+      <!-- Step 2 -->
+      <g transform="translate(20, 50)">
+        <text x="0" y="0" font-size="11" font-weight="bold" fill="#2E7D32">步骤 2: 修复 bug 并提交</text>
+        <text x="20" y="20" font-size="10" fill="#333" font-family="monospace"># 修复代码...</text>
+        <text x="20" y="36" font-size="10" fill="#333" font-family="monospace">git add . &amp;&amp; git commit -m "fix: 修复 B2 紧急 bug"</text>
+        <text x="20" y="52" font-size="10" fill="#333" font-family="monospace">git push origin hotfix/bug-fix-b2</text>
+      </g>
+
+      <!-- Step 3 -->
+      <g transform="translate(450, 15)">
+        <text x="0" y="0" font-size="11" font-weight="bold" fill="#F57C00">步骤 3: 合并到 production</text>
+        <text x="20" y="20" font-size="10" fill="#333" font-family="monospace">git checkout production</text>
+        <text x="20" y="36" font-size="10" fill="#333" font-family="monospace">git merge hotfix/bug-fix-b2 --no-ff</text>
+        <text x="20" y="52" font-size="10" fill="#333" font-family="monospace">git tag -a v1.2.1 -m "Hotfix for B2 bug"</text>
+        <text x="20" y="68" font-size="10" fill="#333" font-family="monospace">git push origin production v1.2.1</text>
+      </g>
+
+      <!-- Step 4 -->
+      <g transform="translate(450, 50)">
+        <text x="0" y="0" font-size="11" font-weight="bold" fill="#4CAF50">步骤 4: 同步回 main (关键!)</text>
+        <text x="20" y="20" font-size="10" fill="#333" font-family="monospace">git checkout main</text>
+        <text x="20" y="36" font-size="10" fill="#333" font-family="monospace">git merge hotfix/bug-fix-b2 --no-ff</text>
+        <text x="20" y="52" font-size="10" fill="#F57C00" font-family="monospace"># ⚠️ 必须确保修复也进入 main，否则会再次出现</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- After Hotfix State -->
+  <g transform="translate(50, 520)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#4CAF50">热修复完成后状态</text>
+    <rect x="0" y="0" width="1300" height="120" rx="10" fill="#C8E6C9" stroke="#4CAF50" stroke-width="1"/>
+
+    <!-- Main after hotfix merge -->
+    <g transform="translate(20, 20)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#2E7D32">main (已合并热修复)</text>
+      <rect x="0" y="0" width="800" height="35" rx="5" fill="#E8F5E9" stroke="#4CAF50"/>
+      <circle cx="25" cy="17.5" r="7" fill="#4CAF50"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="100" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="115" cy="17.5" r="8" fill="#2E7D32"/>
+      <text x="115" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="123" y1="17.5" x2="200" y2="17.5" stroke="#4CAF50" stroke-width="2"/>
+      <circle cx="215" cy="17.5" r="8" fill="#2E7D32"/>
+      <text x="215" y="22" text-anchor="middle" font-size="9" fill="white">B2</text>
+      <line x1="223" y1="17.5" x2="300" y2="17.5" stroke="#F44336" stroke-width="2"/>
+      <circle cx="315" cy="17.5" r="9" fill="#F44336" stroke="#C62828" stroke-width="2"/>
+      <text x="315" y="22" text-anchor="middle" font-size="9" fill="white">H1</text>
+      <text x="330" y="22" font-size="10" fill="#2E7D32">← 热修复已同步</text>
+      <line x1="324" y1="17.5" x2="768" y2="17.5" stroke="#4CAF50" stroke-width="2" stroke-dasharray="4,2"/>
+    </g>
+
+    <!-- Production after hotfix -->
+    <g transform="translate(20, 55)">
+      <text x="0" y="-8" font-size="12" font-weight="bold" fill="#F57C00">production (v1.2.1)</text>
+      <rect x="0" y="0" width="800" height="35" rx="5" fill="#FFE0B2" stroke="#FF9800"/>
+      <circle cx="25" cy="17.5" r="7" fill="#FF9800"/>
+      <text x="25" y="22" text-anchor="middle" font-size="9" fill="white">A</text>
+      <line x1="32" y1="17.5" x2="100" y2="17.5" stroke="#FF9800" stroke-width="2"/>
+      <circle cx="115" cy="17.5" r="8" fill="#F57C00"/>
+      <text x="115" y="22" text-anchor="middle" font-size="9" fill="white">B1</text>
+      <line x1="123" y1="17.5" x2="200" y2="17.5" stroke="#FF9800" stroke-width="2"/>
+      <circle cx="215" cy="17.5" r="8" fill="#F57C00"/>
+      <text x="215" y="22" text-anchor="middle" font-size="9" fill="white">B2+</text>
+      <line x1="223" y1="17.5" x2="300" y2="17.5" stroke="#F44336" stroke-width="2"/>
+      <circle cx="315" cy="17.5" r="9" fill="#F44336" stroke="#C62828" stroke-width="2"/>
+      <text x="315" y="22" text-anchor="middle" font-size="9" fill="white">H1</text>
+      <text x="330" y="22" font-size="10" fill="#4CAF50">✅ Bug 已修复</text>
+    </g>
+  </g>
+
+  <!-- Sync All Worktrees after Hotfix -->
+  <g transform="translate(50, 660)">
+    <text x="0" y="-10" font-size="16" font-weight="bold" fill="#7B1FA2">热修复后同步所有 Worktree</text>
+    <rect x="0" y="0" width="1300" height="140" rx="10" fill="#F3E5F5" stroke="#7B1FA2" stroke-width="1"/>
+
+    <!-- Command Sequence -->
+    <g transform="translate(20, 20)">
+      <rect x="0" y="0" width="1260" height="100" rx="8" fill="#263238" stroke="#546E7A"/>
+      <text x="630" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#80CBC4">热修复后必须同步所有开发线</text>
+
+      <text x="20" y="50" font-size="11" fill="#FF9800" font-family="monospace"># 步骤 1: main 已自动包含热修复 (如果执行了步骤 4)</text>
+
+      <text x="20" y="75" font-size="11" fill="#2196F3" font-family="monospace"># 步骤 2: 同步 wt-1</text>
+      <text x="20" y="93" font-size="10" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-A &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main</text>
+
+      <text x="20" y="113" font-size="11" fill="#9C27B0" font-family="monospace"># 步骤 3: 同步 wt-2</text>
+      <text x="20" y="131" font-size="10" fill="#E8F5E9" font-family="monospace">cd .worktrees/feature-B &amp;&amp; git fetch origin &amp;&amp; git rebase origin/main</text>
+
+      <text x="800" y="50" font-size="11" fill="#4CAF50" font-family="monospace"># 步骤 4: 验证</text>
+      <text x="800" y="68" font-size="10" fill="#E8F5E9" font-family="monospace">git worktree list</text>
+      <text x="800" y="86" font-size="10" fill="#E8F5E9" font-family="monospace">git branch -vv</text>
+      <text x="800" y="104" font-size="10" fill="#E8F5E9" font-family="monospace">git log --oneline -5 --all</text>
+    </g>
+  </g>
+
+  <!-- Key Points -->
+  <g transform="translate(50, 820)">
+    <rect x="0" y="0" width="1300" height="60" rx="8" fill="#FFFDE7" stroke="#FBC02D" stroke-width="2"/>
+    <text x="20" y="25" font-size="12" font-weight="bold" fill="#F57C00">⚠️ 热修复关键原则:</text>
+    <text x="20" y="45" font-size="11" fill="#333">1. 修复必须在 production 验证后，立即同步回 main</text>
+    <text x="350" y="45" font-size="11" fill="#333">2. 所有 worktree 必须 rebase 获取热修复</text>
+    <text x="650" y="45" font-size="11" fill="#333">3. 避免 main 继续开发时丢失热修复</text>
+    <text x="950" y="45" font-size="11" fill="#333">4. 打标签标记 hotfix 版本 (v1.2.1)</text>
+  </g>
+</svg>

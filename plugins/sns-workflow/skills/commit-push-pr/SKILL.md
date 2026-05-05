@@ -69,6 +69,26 @@ fi
 
 ---
 
+## 步骤 1.5: 文档架构检查与补齐
+
+```bash
+# 文档更新与代码提交是一体的：每次开发完成后，文档结构必须同步就绪
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+if [[ -f "$SHELL_DIR/doc-arch-template.sh" ]]; then
+  source "$SHELL_DIR/doc-arch-template.sh"
+
+  # 自动补齐缺失的文档骨架（目录 + index.md + 模板文件）
+  # 不修改内容文件（内容在开发过程中已同步更新）
+  FIX_OUTPUT=$(sns_doc_fix --auto 2>&1) || true
+  if echo "$FIX_OUTPUT" | grep -q "已修复"; then
+    echo "$FIX_OUTPUT"
+    echo "文档骨架已补齐，变更将随代码一起提交"
+  fi
+fi
+```
+
+---
+
 ## 步骤 2: 自动 Commit
 
 ```bash

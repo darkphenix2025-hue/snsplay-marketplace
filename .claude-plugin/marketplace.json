@@ -23,6 +23,7 @@
         "./skills/commit-push-pr",
         "./skills/create-prompt",
         "./skills/dev-config",
+        "./skills/doc-garden",
         "./skills/feature-implement",
         "./skills/feature",
         "./skills/hotfix",
@@ -37,7 +38,8 @@
         "./skills/review",
         "./skills/setup",
         "./skills/status",
-        "./skills/sync"
+        "./skills/sync",
+        "./skills/worktree"
       ]
     }
   ]

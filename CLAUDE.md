@@ -2,164 +2,71 @@
 
 Claude Code plugin marketplace for productivity and development workflows.
 
-## Project Structure
+## 快速开始
 
-```
-snsplay-marketplace/
-├── .claude-plugin/marketplace.json  # Plugin catalog
-├── plugins/sns-workflow/            # Main workflow plugin
-│   ├── agents/                      # Agent definitions
-│   ├── skills/                      # Skill definitions
-│   ├── hooks/                       # Hook configurations
-│   └── scripts/                     # Utility scripts
-├── skills/                          # Shared skill library (24 skills)
-└── tasks/                           # Task management system
-```
-
-## Installation
-
-Add marketplace to Claude Code:
 ```bash
+# 添加 marketplace
 /plugin marketplace add darkphenix2025-hue/snsplay-marketplace
-```
 
-Install plugins:
-```bash
+# 安装插件
 /plugin install superpowers@snsplay-marketplace
 /plugin install sns-workflow@snsplay-marketplace
 ```
 
-## Available Skills
+## 架构
 
-### Core Workflow
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Brainstorming | `/brainstorming` | Expand ideas and escape convergent thinking |
-| Task Decomposition | `/task-decomposition` | Break requirements into tasks |
-| TDD Workflow | `/tdd-workflow` | Test-driven development |
-| Commit & PR | `/commit-push-pr` | Git commit and PR workflow |
+→ 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
-### Product Design
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Requirements Analysis | `/requirements-analysis` | Initial requirement gathering |
-| Architecture Decomposition | `/architecture-decomposition` | Split into architecture units |
-| Technical Design | `/technical-design` | Technical planning |
+```
+snsplay-marketplace/
+├── plugins/sns-workflow/   # 主工作流插件（22 个 skill、6 个 stage）
+├── skills/                 # 共享技能库（24 个 skill）
+├── docs/                   # 渐进式文档（分层架构）
+└── tasks/                  # 任务管理系统
+```
 
-## Agents (sns-workflow)
+核心概念: Stage（阶段定义）+ Role（角色提示）+ Executor（执行器 = system_prompt + preset + model）→ Skill（可调用命令）
 
-- **planner**: Creates implementation plans
-- **implementer**: Executes implementation tasks
-- **code-reviewer**: Reviews code quality
-- **root-cause-analyst**: Bug diagnosis
-- **requirements-gatherer**: Collects user requirements
+## 技能总览
 
-## Task System
+→ 详见 [docs/references/skill-conventions.md](docs/references/skill-conventions.md)
 
-Tasks are organized in `tasks/` directory:
-- `master-index.json`: Project overview with dependencies
-- `T001-T006/`: Individual task folders with `tasks.json`
+| 类别 | 技能 | 命令 |
+|------|------|------|
+| Git 生命周期 | worktree/feature/hotfix/release | `/sns-workflow:<name>` |
+| 提交合并 | commit-push-pr / merge-pr | `/sns-workflow:commit-push-pr` |
+| SDLC 阶段 | requirements/plan/review/implement/rca | `/sns-workflow:<name>` |
+| 编排器 | feature-implement / bug-fix | `/sns-workflow:<name>` |
+| 工具 | status/sync/once/chatroom/publish | `/sns-workflow:<name>` |
+| 文档 | doc-garden | `/sns-workflow:doc-garden` |
 
-Task workflow:
-1. Check `tasks/master-index.json` for project overview
-2. Navigate to task folder for detailed user stories
-3. Use `/task-execution` to implement tasks
+## 开发
 
-## Hooks Configuration
-
-Hooks in `plugins/sns-workflow/hooks/hooks.json`:
-- **UserPromptSubmit**: Guidance hook for workflow enforcement
-- **SubagentStop**: Review validator for subagent outputs
-
-## Development
-
-### Local Development Workflow (Recommended)
-
-Use `--plugin-dir` flag to load plugins locally without marketplace installation:
+→ 详见 [docs/references/development-guide.md](docs/references/development-guide.md)
 
 ```bash
-# Test sns-workflow plugin
+# 本地开发（推荐）
 cc --plugin-dir /projects/snsplay-marketplace/plugins/sns-workflow
 
-# Test specific plugin directory
-cc --plugin-dir /path/to/plugin-name
-```
-
-**Development cycle:**
-```
-Edit skill/agent files → cc --plugin-dir <path> → Test triggers → Iterate
-```
-
-**No need to:**
-- Update marketplace.json during development
-- Run `/plugin install` after each change
-- Push changes to test locally
-
-### Debugging Tips
-
-```bash
-# Add debug output in skills/commands
+# 调试
 !`echo "Plugin root: ${CLAUDE_PLUGIN_ROOT}"`
-!`ls -la ${CLAUDE_PLUGIN_ROOT}/scripts/`
-
-# Test commands from different directories
-cd /tmp && claude /command-name
 ```
 
-### Project Structure Notes
+## 文档地图
 
-This is a plugin development project. Key files:
-- `marketplace.json`: Plugin catalog configuration
-- `skills/*/SKILL.md`: Skill definitions
-- `plugins/sns-workflow/agents/*.md`: Agent definitions
+| 目录 | 内容 | 索引 |
+|------|------|------|
+| docs/design-docs/ | 设计决策、版本模型 | [index](docs/design-docs/index.md) |
+| docs/exec-plans/ | 执行计划（active/completed） | [PLANS](docs/PLANS.md) |
+| docs/references/ | Git 工作流、技能约定、开发指南 | [index](docs/references/index.md) |
+| docs/product-specs/ | 产品规格 | [index](docs/product-specs/index.md) |
+| docs/generated/ | 自动生成的文档 | — |
 
-When ready to publish:
-1. Update version in `marketplace.json`
-2. Commit and push changes
-3. Users can then install via marketplace
+根级文档: [ARCHITECTURE](docs/ARCHITECTURE.md) · [DESIGN](docs/DESIGN.md) · [QUALITY](docs/QUALITY.md) · [SECURITY](docs/SECURITY.md)
 
 ## Notes
 
-- Skills use `bun` as runtime for scripts
-- Tasks support parallel execution (see `parallel_groups` in master-index)
-- Skills are bilingual (Chinese descriptions in skills/README.md)
-
-## Gstack
-
-**IMPORTANT**: For all web browsing tasks, ALWAYS use the `/gstack` skill with the `/browse` command. NEVER use `mcp__claude-in-chrome__*` tools.
-
-**Project Install**: gstack is installed in `.claude/skills/gstack/` for this project. Teammates and collaborators automatically have access to all gstack skills when working in this repo.
-
-**Troubleshooting**: If gstack skills aren't working, run `cd .claude/skills/gstack && ./setup` to rebuild binaries and register skills.
-
-### Available Gstack Skills
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| **Browse** | `/gstack` | QA testing, user flow verification, screenshots, responsive testing |
-| **QA** | `/qa` | Full QA testing workflow |
-| **QA Only** | `/qa-only` | QA testing only |
-| **Investigate** | `/investigate` | Debug and diagnose issues |
-| **Autoplan** | `/autoplan` | Automatic full review pipeline |
-| **Plan CEO Review** | `/plan-ceo-review` | Scope & strategy review |
-| **Plan Eng Review** | `/plan-eng-review` | Architecture & code review (required) |
-| **Plan Design Review** | `/plan-design-review` | UI/UX review |
-| **Design Consultation** | `/design-consultation` | Design consultation |
-| **Design Review** | `/design-review` | Design review |
-| **Review** | `/review` | Code review |
-| **Codex** | `/codex` | Independent second opinion |
-| **Ship** | `/ship` | Ship features |
-| **Land and Deploy** | `/land-and-deploy` | Merge and deploy |
-| **Canary** | `/canary` | Canary testing |
-| **Benchmark** | `/benchmark` | Performance benchmarks |
-| **Setup Browser Cookies** | `/setup-browser-cookies` | Configure browser cookies |
-| **Setup Deploy** | `/setup-deploy` | Configure deployment |
-| **Retro** | `/retro` | Retrospective |
-| **Document Release** | `/document-release` | Release documentation |
-| **CSO** | `/cso` | CSO related |
-| **Office Hours** | `/office-hours` | Office hours |
-| **Careful** | `/careful` | Careful mode |
-| **Guard** | `/guard` | Guard mode |
-| **Freeze** | `/freeze` | Freeze code |
-| **Unfreeze** | `/unfreeze` | Unfreeze code |
-| **Gstack Upgrade** | `/gstack-upgrade` | Upgrade gstack |
+- Skills 使用 `bun` 运行时
+- 任务支持并行执行（见 `parallel_groups`）
+- 技能描述双语（中文）
+- 每次代码修改后同步更新文档（由 doc-garden hook 提醒）
