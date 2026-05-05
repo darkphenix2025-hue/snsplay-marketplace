@@ -32,7 +32,7 @@ SNS_DOC_CLAUDE_MD_MAX_LINES=150
 
 # === 辅助函数 ===
 _sns_doc_root() {
-  # 找到项目根目录（含 CLAUDE.md 的上层目录）
+  # 1. 先查找 CLAUDE.md
   local dir="${PWD}"
   while [[ "$dir" != "/" ]]; do
     if [[ -f "$dir/CLAUDE.md" ]]; then
@@ -41,8 +41,15 @@ _sns_doc_root() {
     fi
     dir="$(dirname "$dir")"
   done
-  echo ""
-  return 1
+  # 2. 回退：查找 git 根目录
+  local git_root
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [[ -n "$git_root" ]]; then
+    echo "$git_root"
+    return 0
+  fi
+  # 3. 最后回退：使用当前目录
+  echo "${PWD}"
 }
 
 # === 检查架构合规性 ===
@@ -56,10 +63,6 @@ sns_doc_check() {
 
   local root
   root=$(_sns_doc_root)
-  if [[ -z "$root" ]]; then
-    $quiet || echo "错误: 未找到项目根目录 (无 CLAUDE.md)"
-    return 1
-  fi
 
   local missing=()
   local issues=()
@@ -122,12 +125,35 @@ sns_doc_fix() {
 
   local root
   root=$(_sns_doc_root)
-  if [[ -z "$root" ]]; then
-    echo "错误: 未找到项目根目录"
-    return 1
-  fi
 
   local fixed=()
+
+  # 如果 CLAUDE.md 不存在，创建最小化的导航文件
+  if [[ ! -f "$root/CLAUDE.md" ]]; then
+    local project_name
+    project_name=$(basename "$root")
+    cat > "$root/CLAUDE.md" <<TMPL
+# ${project_name}
+
+## 文档地图
+
+| 目录 | 内容 | 索引 |
+|------|------|------|
+| docs/design-docs/ | 设计决策 | [index](docs/design-docs/index.md) |
+| docs/exec-plans/ | 执行计划 | [PLANS](docs/PLANS.md) |
+| docs/references/ | 参考资料 | [index](docs/references/index.md) |
+| docs/product-specs/ | 产品规格 | [index](docs/product-specs/index.md) |
+
+根级文档: [ARCHITECTURE](docs/ARCHITECTURE.md) · [DESIGN](docs/DESIGN.md) · [QUALITY](docs/QUALITY.md) · [SECURITY](docs/SECURITY.md)
+TMPL
+    fixed+=("创建 CLAUDE.md（最小导航）")
+
+    # 同时创建 AGENTS.md 符号链接
+    if [[ ! -f "$root/AGENTS.md" ]] && [[ ! -L "$root/AGENTS.md" ]]; then
+      ln -sf CLAUDE.md "$root/AGENTS.md"
+      fixed+=("创建 AGENTS.md → CLAUDE.md 符号链接")
+    fi
+  fi
 
   # 创建缺失目录
   for d in "${SNS_DOC_REQUIRED_DIRS[@]}"; do
@@ -182,13 +208,14 @@ TMPL
 sns_doc_migrate() {
   local root
   root=$(_sns_doc_root)
-  if [[ -z "$root" ]]; then
-    echo "错误: 未找到项目根目录"
-    return 1
-  fi
 
   local migrated=()
   local skipped=()
+
+  # 0. 确保 CLAUDE.md 存在（由 sns_doc_fix 自动创建）
+  if [[ ! -f "$root/CLAUDE.md" ]]; then
+    echo "CLAUDE.md 不存在，将自动创建最小导航文件"
+  fi
 
   # 1. 先创建目录骨架
   sns_doc_fix --auto >/dev/null 2>&1
