@@ -116,6 +116,14 @@ if [[ -f "$TASK_DIR/review-findings-to-fix.json" ]]; then
   echo ""
   echo "⚠ 有审核未解决问题（review-findings-to-fix.json 存在）"
 fi
+
+# cross-review
+review_count=$(ls "$TASK_DIR"/review-*.json 2>/dev/null | wc -l | tr -d ' ')
+echo "交叉审查: $review_count 份输出"
+
+# heal plans
+heal_count=$(ls "$TASK_DIR"/heal-*.json 2>/dev/null | wc -l | tr -d ' ')
+echo "恢复计划: $heal_count 份输出"
 ```
 
 ---
@@ -255,6 +263,13 @@ fi
 if [[ -f "$TASK_DIR/review-findings-to-fix.json" ]]; then
   health="warning"
   issues="$issues  待修复审核问题\n"
+fi
+
+# 检查交叉审查状态
+latest_review=$(ls -t "$TASK_DIR"/review-*.json 2>/dev/null | head -1)
+if [[ -n "$latest_review" ]]; then
+  review_status=$(grep -o '"overall_status"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_review" | head -1 | sed 's/.*:"//;s/"$//')
+  [[ "$review_status" == "needs_changes" ]] && health="warning" && issues="$issues  最新审查待修复\n"
 fi
 
 # 检查 CLI 错误

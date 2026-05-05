@@ -24,7 +24,7 @@ main (x.y.z-dev.N)
 | `scripts/context.sh` | 分支类型检测、工作区状态检查 |
 | `scripts/doc-arch-template.sh` | 文档架构规则（必需目录/文件、check/fix/migrate） |
 
-## 技能分组（14 个）
+## 技能分组（16 个）
 
 ### Git 生命周期（4）
 
@@ -43,12 +43,19 @@ main (x.y.z-dev.N)
 | `merge-pr` | 获取待合并 PR → squash 合并 → 清理分支 → reset worktree |
 | `publish` | 校验 release 分支 → 打正式 tag → 回流 main |
 
+### 运行时保障（2）
+
+| 技能 | 审查/恢复逻辑 |
+|------|--------------|
+| `review` | 两视角交叉审查（安全+正确性 vs 架构+可维护性）→ 综合去重 → artifact |
+| `heal` | 读取错误上下文 → 分类（auth/network/conflict 等 9 类）→ 分步恢复计划 |
+
 ### 可观测性（2）
 
 | 技能 | 数据源 |
 |------|--------|
 | `status` | git 状态（分支、版本、worktree、提交历史） |
-| `observe` | .snsplay/task/ 产物文件、调试日志、CLI 追踪 |
+| `observe` | .snsplay/task/ 产物文件、调试日志、CLI 追踪、review/heal artifact |
 
 ### 架构/文档（2）
 
