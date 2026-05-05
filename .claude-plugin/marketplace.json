@@ -32,6 +32,7 @@
         "./skills/merge-pr",
         "./skills/once",
         "./skills/plan",
+        "./skills/observe",
         "./skills/publish",
         "./skills/rca",
         "./skills/release",
