@@ -9,7 +9,6 @@ Claude Code plugin marketplace for productivity and development workflows.
 /plugin marketplace add darkphenix2025-hue/snsplay-marketplace
 
 # 安装插件
-/plugin install superpowers@snsplay-marketplace
 /plugin install sns-workflow@snsplay-marketplace
 ```
 
@@ -19,30 +18,26 @@ Claude Code plugin marketplace for productivity and development workflows.
 
 ```
 snsplay-marketplace/
-├── plugins/sns-workflow/   # 主工作流插件（22 个 skill、6 个 stage）
-├── skills/                 # 共享技能库（24 个 skill）
+├── plugins/sns-workflow/   # 主工作流插件（14 个 skill）
+├── backup/                 # 旧技能暂存（plugins/skills + SDLC 技能 + TS 脚本）
 ├── docs/                   # 渐进式文档（分层架构）
-└── tasks/                  # 任务管理系统
+└── .claude-plugin/         # marketplace 注册
 ```
 
-核心概念: Stage（阶段定义）+ Role（角色提示）+ Executor（执行器 = system_prompt + preset + model）→ Skill（可调用命令）
+核心模型: Git 双线分支（main ↔ release）+ 多 worktree 并行开发 + tag 驱动发布
 
-## 技能总览
+## 技能总览（14 个）
 
-→ 详见 [docs/references/skill-conventions.md](docs/references/skill-conventions.md)
-
-| 类别 | 技能 | 命令 |
-|------|------|------|
-| Git 生命周期 | worktree/feature/hotfix/release | `/sns-workflow:<name>` |
-| 提交合并 | commit-push-pr / merge-pr | `/sns-workflow:commit-push-pr` |
-| SDLC 阶段 | requirements/plan/review/implement/rca | `/sns-workflow:<name>` |
-| 编排器 | feature-implement / bug-fix | `/sns-workflow:<name>` |
-| 工具 | status/sync/once/chatroom/publish | `/sns-workflow:<name>` |
-| 文档 | doc-garden | `/sns-workflow:doc-garden` |
+| 类别 | 技能 | 命令 | 用途 |
+|------|------|------|------|
+| Git 生命周期 | worktree / feature / hotfix / release | `/sns-workflow:<name>` | 分支创建与管理 |
+| 流水线 | commit-push-pr / merge-pr / publish | `/sns-workflow:<name>` | 提交、PR 合并、发布 |
+| 可观测性 | status / observe | `/sns-workflow:<name>` | 项目状态、工作流运行指标 |
+| 架构/文档 | arch-lint / doc-garden | `/sns-workflow:<name>` | 架构检查、文档整理 |
+| 配置 | setup / create-prompt | `/sns-workflow:<name>` | 初始化、创建自定义 prompt |
+| 同步 | sync | `/sns-workflow:sync` | 远端状态同步 |
 
 ## 开发
-
-→ 详见 [docs/references/development-guide.md](docs/references/development-guide.md)
 
 ```bash
 # 本地开发（推荐）
@@ -58,7 +53,7 @@ cc --plugin-dir /projects/snsplay-marketplace/plugins/sns-workflow
 |------|------|------|
 | docs/design-docs/ | 设计决策、版本模型 | [index](docs/design-docs/index.md) |
 | docs/exec-plans/ | 执行计划（active/completed） | [PLANS](docs/PLANS.md) |
-| docs/references/ | Git 工作流、技能约定、开发指南 | [index](docs/references/index.md) |
+| docs/references/ | Git 工作流、开发指南 | [index](docs/references/index.md) |
 | docs/product-specs/ | 产品规格 | [index](docs/product-specs/index.md) |
 | docs/generated/ | 自动生成的文档 | — |
 
@@ -66,7 +61,7 @@ cc --plugin-dir /projects/snsplay-marketplace/plugins/sns-workflow
 
 ## Notes
 
-- Skills 使用 `bun` 运行时
-- 任务支持并行执行（见 `parallel_groups`）
-- 技能描述双语（中文）
+- Skills 使用 shell 脚本（version.sh / context.sh / doc-arch-template.sh）
+- 五路分支路由: main / release / worktree / feature / hotfix
 - 每次代码修改后同步更新文档（由 doc-garden hook 提醒）
+- 旧技能暂存于 backup/（含旧 SDLC 技能 + 产品设计技能），后续按需引入

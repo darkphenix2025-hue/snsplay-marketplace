@@ -1,0 +1,27 @@
+{
+  "description": "sns-workflow 文档花园 hooks",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/skills/doc-garden/bin/check-doc-arch.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/skills/doc-garden/bin/remind-doc-update.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
