@@ -18,6 +18,7 @@
       "strict": false,
       "category": "workflow",
       "skills": [
+        "./skills/arch-lint",
         "./skills/bug-fix",
         "./skills/chatroom",
         "./skills/commit-push-pr",
