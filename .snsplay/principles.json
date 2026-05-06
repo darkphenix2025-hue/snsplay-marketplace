@@ -132,10 +132,10 @@
     {
       "id": "conventional-commit-messages",
       "category": "workflow",
-      "severity": "info",
+      "severity": "warning",
       "description": "提交信息应遵循约定式提交格式（feat/fix/chore/docs/test/refactor）",
       "check": "workflow",
-      "penalty": 0,
+      "penalty": 15,
       "message": "提交信息不符合约定式提交格式"
     },
     {
@@ -157,6 +157,15 @@
       "message": ".snsplay/task/ 未加入 .gitignore"
     },
     {
+      "id": "file-size-limit",
+      "category": "structure",
+      "severity": "warning",
+      "description": "单文件不超过 300 行（SKILL.md 文件除外），防止 agent 生成过长文件",
+      "check": "line-count",
+      "penalty": 10,
+      "threshold": 300
+    },
+    {
       "id": "hook-security-no-credential-storage",
       "category": "architecture",
       "severity": "critical",
@@ -164,6 +173,24 @@
       "check": "security",
       "penalty": 30,
       "message": "检测到硬编码凭证: {file}"
+    },
+    {
+      "id": "structured-logging",
+      "category": "architecture",
+      "severity": "warning",
+      "description": "日志输出必须使用结构化格式（JSON 或带字段对象），禁止裸字符串日志",
+      "check": "arch-lint",
+      "penalty": 10,
+      "message": "检测到非结构化日志调用（如 console.log('msg')），使用结构化 logger（如 logger.info({event, data})）"
+    },
+    {
+      "id": "naming-convention-schemas",
+      "category": "architecture",
+      "severity": "info",
+      "description": "Schema 使用 PascalCase 命名，Type 使用描述性前缀（如 AppSettings / UserPayload）",
+      "check": "arch-lint",
+      "penalty": 5,
+      "message": "Schema/Type 命名不规范，使用 PascalCase 和描述性名称"
     }
   ]
 }

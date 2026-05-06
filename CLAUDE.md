@@ -18,7 +18,7 @@ Claude Code plugin marketplace for productivity and development workflows.
 
 ```
 snsplay-marketplace/
-├── plugins/sns-workflow/   # 主工作流插件（21 个 skill）
+├── plugins/sns-workflow/   # 主工作流插件（24 个 skill）
 ├── backup/                 # 旧技能暂存（plugins/skills + SDLC 技能 + TS 脚本）
 ├── docs/                   # 渐进式文档（分层架构）
 └── .claude-plugin/         # marketplace 注册

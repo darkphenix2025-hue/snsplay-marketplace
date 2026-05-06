@@ -23,7 +23,9 @@
         "./skills/create-prompt",
         "./skills/drift-scanner",
         "./skills/dev-server",
+        "./skills/dashboard-gen",
         "./skills/doc-garden",
+        "./skills/eval-harness",
         "./skills/plan",
         "./skills/qa-gate",
         "./skills/heal",
@@ -38,6 +40,7 @@
         "./skills/status",
         "./skills/sync",
         "./skills/ui-verify",
+        "./skills/video-recorder",
         "./skills/worktree"
       ]
     }

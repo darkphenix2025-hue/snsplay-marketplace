@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:observe
-description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告（覆盖 review/heal/ui-verify artifact）。
+description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告（覆盖 review/heal/ui-verify artifact）。未来增强: 支持 LogQL/PromQL 查询能力。
 user-invocable: true
 allowed-tools: Bash
 ---

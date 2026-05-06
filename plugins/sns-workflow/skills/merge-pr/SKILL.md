@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:merge-pr
-description: PR 合并命令 —— 在 main 分支上检查所有待合并 PR，CI 状态检查 + flaky 测试自动重试，按顺序 squash 合并。worktree 分支只 reset 不删除，feature/hotfix 分支合并后清理。
+description: PR 合并命令 —— 在 main 分支上检查所有待合并 PR，CI 状态检查 + flaky 测试自动重试，按顺序 squash 合并。worktree 分支只 reset 不删除，feature/hotfix 分支合并后清理。支持 qa-gate 通过后自动合并（配合 ralph-loop 自动触发）。
 user-invocable: true
 allowed-tools: Bash
 ---
