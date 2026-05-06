@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "description": "sns-workflow golden principles registry — drift-scanner loads these rules for quality scoring",
+  "principles": [
+    {
+      "id": "no-hardcoded-paths",
+      "category": "architecture",
+      "severity": "critical",
+      "description": "SKILL.md 不得使用硬编码路径（如 plugins/sns-workflow/scripts），必须使用 ${CLAUDE_PLUGIN_ROOT}",
+      "check": "arch-lint",
+      "penalty": 15,
+      "message": "使用 ${CLAUDE_PLUGIN_ROOT} 替代硬编码路径: {path}"
+    },
+    {
+      "id": "no-circular-deps",
+      "category": "architecture",
+      "severity": "critical",
+      "description": "scripts/ 层不得存在循环依赖（A imports B, B imports A）",
+      "check": "arch-lint",
+      "penalty": 30,
+      "message": "检测到循环依赖: {file_a} ↔ {file_b}"
+    },
+    {
+      "id": "no-reverse-imports",
+      "category": "architecture",
+      "severity": "critical",
+      "description": "scripts/ 层不得导入 skills/ 层（依赖方向: skills → scripts → types）",
+      "check": "arch-lint",
+      "penalty": 15,
+      "message": "scripts/ 不应导入 skills/: {file}"
+    },
+    {
+      "id": "types-no-internal-imports",
+      "category": "architecture",
+      "severity": "warning",
+      "description": "types/ 层不得有内部模块导入（仅类型定义，零依赖）",
+      "check": "arch-lint",
+      "penalty": 15,
+      "message": "types/ 不应有内部导入: {file}"
+    },
+    {
+      "id": "claude-md-length",
+      "category": "documentation",
+      "severity": "warning",
+      "description": "CLAUDE.md 不超过 150 行（保持为 map，不是百科全书）",
+      "check": "line-count",
+      "penalty": 20,
+      "threshold": 150,
+      "message": "CLAUDE.md 超过 {threshold} 行，精简至索引 + 指针模式"
+    },
+    {
+      "id": "docs-completeness",
+      "category": "documentation",
+      "severity": "warning",
+      "description": "docs/ 必须包含必需目录（design-docs, exec-plans, product-specs, references）和 index.md",
+      "check": "doc-arch",
+      "penalty": 10,
+      "message": "docs/ 缺少必需文件: {missing}"
+    },
+    {
+      "id": "skill-registration-consistency",
+      "category": "structure",
+      "severity": "critical",
+      "description": "marketplace.json 注册的技能必须与磁盘 skills/*/SKILL.md 双向一致",
+      "check": "structure",
+      "penalty": 20,
+      "message": "技能注册不一致: 注册={registered}, 磁盘={on_disk}"
+    },
+    {
+      "id": "version-count-sync",
+      "category": "structure",
+      "severity": "warning",
+      "description": "CLAUDE.md 和 ARCHITECTURE.md 的技能计数必须与 marketplace.json 一致",
+      "check": "structure",
+      "penalty": 15,
+      "message": "技能计数不一致: marketplace={actual}, docs={stated}"
+    }
+  ]
+}

@@ -11,6 +11,49 @@ allowed-tools: Bash
 
 **前置条件**: `scripts/arch-lint.sh`、`scripts/doc-arch-template.sh` 已就位。
 
+**黄金原则**: 自动加载 `.snsplay/principles.json`（如存在），按 category 路由到对应扫描步骤，自定义 penalty 覆盖默认扣分。
+
+---
+
+## 步骤 0: 加载黄金原则注册表
+
+```bash
+PRINCIPLES_FILE="$ROOT/.snsplay/principles.json"
+PRINCIPLES_ARCH=()
+PRINCIPLES_DOC=()
+PRINCIPLES_STRUCT=()
+PRINCIPLES_CI=()
+
+if [[ -f "$PRINCIPLES_FILE" ]]; then
+  echo "=== 加载黄金原则 ==="
+
+  # 按 category 分类原则
+  PRINCIPLE_IDS=$(python3 -c "
+import json, sys
+with open('$PRINCIPLES_FILE') as f:
+    d = json.load(f)
+for p in d.get('principles', []):
+    print(f\"{p['id']}|{p['category']}|{p.get('severity','warning')}|{p.get('penalty',0)}|{p.get('check','')}\")
+" 2>/dev/null || echo "")
+
+  while IFS='|' read -r pid pcat psev ppenalty pcheck; do
+    [[ -z "$pid" ]] && continue
+    case "$pcat" in
+      architecture) PRINCIPLES_ARCH+=("$pid:$ppenalty:$psev") ;;
+      documentation) PRINCIPLES_DOC+=("$pid:$ppenalty:$psev") ;;
+      structure) PRINCIPLES_STRUCT+=("$pid:$ppenalty:$psev") ;;
+      ci_quality|ci) PRINCIPLES_CI+=("$pid:$ppenalty:$psev") ;;
+    esac
+  done <<< "$PRINCIPLE_IDS"
+
+  total_principles=$(echo "$PRINCIPLE_IDS" | grep -c . 2>/dev/null || echo "0")
+  echo "  已加载 $total_principles 条原则 (架构=${#PRINCIPLES_ARCH[@]} 文档=${#PRINCIPLES_DOC[@]} 结构=${#PRINCIPLES_STRUCT[@]} CI=${#PRINCIPLES_CI[@]})"
+else
+  echo "=== 黄金原则 ==="
+  echo "  未找到 .snsplay/principles.json，使用默认扣分规则"
+fi
+```
+
 ---
 
 ## 步骤 1: 架构扫描

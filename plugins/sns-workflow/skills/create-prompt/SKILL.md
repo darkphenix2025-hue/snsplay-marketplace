@@ -1,13 +1,15 @@
 ---
 name: sns-workflow:create-prompt
-description: 为 sns-workflow 执行器创建自定义系统提示。引导用户定义名称、描述、工具和提示内容。保存到 ~/.snsplay/system-prompts/。
+description: 创建可复用的自定义 Agent 角色提示。引导用户定义名称、描述和提示内容。任务特定的执行计划请使用 /sns-workflow:plan。
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
 ---
 
-# 创建自定义系统提示
+# 创建可复用的自定义 Agent 角色提示
 
-引导用户创建可用于 sns-workflow 执行器的自定义系统提示。
+引导用户创建可跨任务复用的自定义 Agent 角色提示。每个角色提示定义一个专业视角（如安全审查员、架构分析师）。
+
+**注意**: 如果需要为特定任务创建执行计划（含步骤、接受标准、任务提示），请使用 `/sns-workflow:plan`。本技能专注于创建**可复用的角色定义**，而非一次性任务计划。
 
 **自定义提示目录：** `~/.snsplay/system-prompts/`
 **内置提示：** `${CLAUDE_PLUGIN_ROOT}/system-prompts/built-in/`

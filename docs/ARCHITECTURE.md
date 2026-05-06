@@ -32,7 +32,7 @@ main (x.y.z-dev.N)
 | 技能 | 输入 | 输出 |
 |------|------|------|
 | `worktree` | 空闲标识 | 创建 `worktree-NNN` 分支 + worktree 目录 |
-| `feature` | 空闲 worktree | 创建 `feature/<name>` 分支 |
+| `plan` | 空闲 worktree/main | 范围检测 → 生成计划产物 → large 时创建 feature 分支 |
 | `hotfix` | 线上 tag | 创建 `hotfix/<version>` 分支 |
 | `release` | 版本号 | 创建 `release/<version>` 分支 |
 
@@ -72,7 +72,7 @@ main (x.y.z-dev.N)
 | 技能 | 用途 |
 |------|------|
 | `setup` | 初始化插件配置 |
-| `create-prompt` | 发现/列出/创建自定义 agent prompt |
+| `create-prompt` | 发现/列出/创建自定义 agent prompt（专注可复用角色，任务计划用 plan） |
 | `sync` | 同步远端 main 到本地 worktree |
 
 ## 六层架构（代码组织）

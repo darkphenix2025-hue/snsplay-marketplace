@@ -128,6 +128,20 @@ echo "恢复计划: $heal_count 份输出"
 # ui-verify
 uiv_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | wc -l | tr -d ' ')
 echo "UI 验证: $uiv_count 份输出"
+
+# plans (unified plan skill)
+plan_count=$(ls "$TASK_DIR"/plan-*.json 2>/dev/null | wc -l | tr -d ' ')
+plan_confirmed=$(ls "$TASK_DIR"/plan-*.json 2>/dev/null | xargs grep -l '"status"[[:space:]]*:[[:space:]]*"confirmed"' 2>/dev/null | wc -l | tr -d ' ')
+echo "执行计划: $plan_count 份 (已确认: $plan_confirmed)"
+
+# 最新计划状态
+latest_plan=$(ls -t "$TASK_DIR"/plan-*.json 2>/dev/null | head -1)
+if [[ -n "$latest_plan" ]] && [[ -f "$latest_plan" ]]; then
+  plan_scope=$(grep -o '"scope"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_plan" | head -1 | sed 's/.*:"//;s/"$//')
+  plan_status=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_plan" | head -1 | sed 's/.*:"//;s/"$//')
+  plan_desc=$(grep -o '"description"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_plan" | head -1 | sed 's/.*:"//;s/"$//')
+  echo "  最新: [$plan_scope/$plan_status] $plan_desc"
+fi
 ```
 
 ---

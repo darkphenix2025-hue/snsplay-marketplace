@@ -23,7 +23,7 @@
         "./skills/create-prompt",
         "./skills/drift-scanner",
         "./skills/doc-garden",
-        "./skills/feature",
+        "./skills/plan",
         "./skills/heal",
         "./skills/hotfix",
         "./skills/merge-pr",
