@@ -139,6 +139,15 @@
       "message": "提交信息不符合约定式提交格式"
     },
     {
+      "id": "qa-gate-required",
+      "category": "workflow",
+      "severity": "warning",
+      "description": "提交前应运行质量门禁（qa-gate PASS），确保多维度验证通过",
+      "check": "workflow",
+      "penalty": 10,
+      "message": "提交前未运行 qa-gate 或 qa-gate 未通过（运行 /sns-workflow:qa-gate）"
+    },
+    {
       "id": "gitignore-snsplay",
       "category": "structure",
       "severity": "critical",

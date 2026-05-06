@@ -142,6 +142,18 @@ if [[ -n "$latest_plan" ]] && [[ -f "$latest_plan" ]]; then
   plan_desc=$(grep -o '"description"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_plan" | head -1 | sed 's/.*:"//;s/"$//')
   echo "  最新: [$plan_scope/$plan_status] $plan_desc"
 fi
+
+# qa-gate (quality gate)
+qagate_count=$(ls "$TASK_DIR"/qa-gate-*.json 2>/dev/null | wc -l | tr -d ' ')
+echo "质量门禁: $qagate_count 份输出"
+
+latest_qagate=$(ls -t "$TASK_DIR"/qa-gate-*.json 2>/dev/null | head -1)
+if [[ -n "$latest_qagate" ]] && [[ -f "$latest_qagate" ]]; then
+  qagate_verdict=$(grep -o '"verdict"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_qagate" | head -1 | sed 's/.*:"//;s/"$//')
+  qagate_score=$(grep -o '"score"[[:space:]]*:[[:space:]]*[0-9.]*' "$latest_qagate" | head -1 | sed 's/.*://')
+  qagate_round=$(grep -o '"round"[[:space:]]*:[[:space:]]*[0-9]*' "$latest_qagate" | head -1 | sed 's/.*://')
+  echo "  最新: [$qagate_verdict] score=$qagate_score round=$qagate_round"
+fi
 ```
 
 ---

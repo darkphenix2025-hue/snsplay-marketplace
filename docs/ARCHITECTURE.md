@@ -25,7 +25,7 @@ main (x.y.z-dev.N)
 | `scripts/doc-arch-template.sh` | 文档架构规则（必需目录/文件、check/fix/migrate） |
 | `scripts/arch-lint.sh` | 六层架构检查函数库（可 source 供 arch-lint/drift-scanner 共用） |
 
-## 技能分组（19 个）
+## 技能分组（21 个）
 
 ### Git 生命周期（4）
 
@@ -44,7 +44,13 @@ main (x.y.z-dev.N)
 | `merge-pr` | 获取待合并 PR → squash 合并 → 清理分支 → reset worktree |
 | `publish` | 校验 release 分支 → 打正式 tag → 回流 main |
 
-### 运行时保障（4）
+### 执行控制（1）
+
+| 技能 | 用途 |
+|------|------|
+| `ralph-loop` | Ralph Wiggum 循环：持续检测 Harness Engineering 差距 → 自动触发开发 → 再验证，直到所有实践覆盖 |
+
+### 运行时保障（5）
 
 | 技能 | 审查/恢复/验证逻辑 |
 |------|-------------------|
@@ -52,6 +58,7 @@ main (x.y.z-dev.N)
 | `heal` | 读取错误上下文 → 分类（auth/network/conflict 等 9 类）→ 分步恢复计划 |
 | `ui-verify` | 页面快照基线化 → 变更比对 / Bug 复现取证 / Lighthouse 审计 → artifact |
 | `dev-server` | per-worktree 开发服务器管理（自动检测项目类型 / 启动停止 / 端口分配 / 健康检查） |
+| `qa-gate` | 多维度质量门禁（AC/review/UI/架构综合评分）→ PASS/WARN/FAIL → --auto 自主修复循环 |
 
 ### 可观测性（2）
 
