@@ -21,6 +21,7 @@
         "./skills/arch-lint",
         "./skills/commit-push-pr",
         "./skills/create-prompt",
+        "./skills/drift-scanner",
         "./skills/doc-garden",
         "./skills/feature",
         "./skills/heal",
@@ -33,6 +34,7 @@
         "./skills/setup",
         "./skills/status",
         "./skills/sync",
+        "./skills/ui-verify",
         "./skills/worktree"
       ]
     }

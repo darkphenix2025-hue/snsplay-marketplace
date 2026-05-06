@@ -1,5 +1,5 @@
 {
-  "description": "sns-workflow 文档花园 hooks",
+  "description": "sns-workflow hooks（doc-garden + drift-scanner）",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,6 +8,10 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/skills/doc-garden/bin/check-doc-arch.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/skills/drift-scanner/bin/scan-on-commit.sh"
           }
         ]
       }

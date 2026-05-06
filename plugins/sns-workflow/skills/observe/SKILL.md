@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:observe
-description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告。
+description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告（覆盖 review/heal/ui-verify artifact）。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -124,6 +124,80 @@ echo "交叉审查: $review_count 份输出"
 # heal plans
 heal_count=$(ls "$TASK_DIR"/heal-*.json 2>/dev/null | wc -l | tr -d ' ')
 echo "恢复计划: $heal_count 份输出"
+
+# ui-verify
+uiv_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | wc -l | tr -d ' ')
+echo "UI 验证: $uiv_count 份输出"
+```
+
+---
+
+## 步骤 2.5: UI 验证详细报告
+
+```bash
+TASK_DIR="$ROOT/.snsplay/task"
+
+echo ""
+echo "=== UI 验证详细报告 ==="
+
+if [[ "$uiv_count" -eq 0 ]] 2>/dev/null || [[ ! -f "$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | head -1)" ]]; then
+  echo "无 UI 验证产物"
+else
+  # 按模式分类统计
+  snapshot_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"snapshot"' 2>/dev/null | wc -l | tr -d ' ')
+  verify_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"verify"' 2>/dev/null | wc -l | tr -d ' ')
+  reproduce_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"reproduce"' 2>/dev/null | wc -l | tr -d ' ')
+  audit_count=$(ls "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"audit"' 2>/dev/null | wc -l | tr -d ' ')
+
+  echo "模式分布: snapshot=$snapshot_count verify=$verify_count reproduce=$reproduce_count audit=$audit_count"
+
+  # 最新 verify 差异报告
+  latest_verify=$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"verify"' 2>/dev/null | head -1)
+  if [[ -n "$latest_verify" ]] && [[ -f "$latest_verify" ]]; then
+    severity=$(grep -o '"severity"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_verify" | head -1 | sed 's/.*:"//;s/"$//')
+    total_changes=$(grep -o '"total_changes"[[:space:]]*:[[:space:]]*[0-9]*' "$latest_verify" | head -1 | sed 's/.*://')
+    echo ""
+    echo "最新差异验证:"
+    echo "  严重度: ${severity:-unknown}"
+    echo "  变更总数: ${total_changes:-0}"
+    if [[ "$severity" == "significant" ]] || [[ "$severity" == "moderate" ]]; then
+      echo "  ⚠ 存在需关注的页面变更"
+    fi
+  fi
+
+  # 最新 reproduce 结果
+  latest_repro=$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"reproduce"' 2>/dev/null | head -1)
+  if [[ -n "$latest_repro" ]] && [[ -f "$latest_repro" ]]; then
+    reproducible=$(grep -o '"reproducible"[[:space:]]*:[[:space:]]*[a-z]*' "$latest_repro" | head -1 | sed 's/.*://')
+    echo ""
+    echo "最新 Bug 复现:"
+    echo "  可复现: ${reproducible:-unknown}"
+  fi
+
+  # 最新 audit 健康度
+  latest_audit=$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"audit"' 2>/dev/null | head -1)
+  if [[ -n "$latest_audit" ]] && [[ -f "$latest_audit" ]]; then
+    health_val=$(grep -o '"overall_health"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_audit" | head -1 | sed 's/.*:"//;s/"$//')
+    critical=$(grep -o '"critical_issues"[[:space:]]*:[[:space:]]*[0-9]*' "$latest_audit" | head -1 | sed 's/.*://')
+    echo ""
+    echo "最新审计健康度:"
+    echo "  整体: ${health_val:-unknown}"
+    echo "  关键问题: ${critical:-0}"
+    if [[ "$health_val" == "poor" ]] || [[ -n "$critical" ]] && [[ "$critical" -gt 0 ]] 2>/dev/null; then
+      echo "  ⚠ 页面健康度需关注"
+    fi
+  fi
+
+  # 基线状态
+  if [[ -f "$TASK_DIR/ui-verify-baseline.json" ]]; then
+    baseline_ts=$(grep -o '"timestamp"[[:space:]]*:[[:space:]]*"[^"]*"' "$TASK_DIR/ui-verify-baseline.json" | head -1 | sed 's/.*:"//;s/"$//')
+    echo ""
+    echo "基线: 已保存 (${baseline_ts:-unknown})"
+  else
+    echo ""
+    echo "基线: 未建立（运行 /sns-workflow:ui-verify --snapshot）"
+  fi
+fi
 ```
 
 ---
@@ -270,6 +344,31 @@ latest_review=$(ls -t "$TASK_DIR"/review-*.json 2>/dev/null | head -1)
 if [[ -n "$latest_review" ]]; then
   review_status=$(grep -o '"overall_status"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_review" | head -1 | sed 's/.*:"//;s/"$//')
   [[ "$review_status" == "needs_changes" ]] && health="warning" && issues="$issues  最新审查待修复\n"
+fi
+
+# 检查 UI 验证状态
+latest_verify=$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"verify"' 2>/dev/null | head -1)
+if [[ -n "$latest_verify" ]] && [[ -f "$latest_verify" ]]; then
+  sev=$(grep -o '"severity"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_verify" | head -1 | sed 's/.*:"//;s/"$//')
+  [[ "$sev" == "significant" ]] && health="degraded" && issues="$issues  UI 差异严重 (significant)\n"
+  [[ "$sev" == "moderate" ]] && [[ "$health" == "healthy" ]] && health="warning" && issues="$issues  UI 差异中等 (moderate)\n"
+fi
+
+latest_audit=$(ls -t "$TASK_DIR"/ui-verify-*.json 2>/dev/null | xargs grep -l '"mode"[[:space:]]*:[[:space:]]*"audit"' 2>/dev/null | head -1)
+if [[ -n "$latest_audit" ]] && [[ -f "$latest_audit" ]]; then
+  audit_health=$(grep -o '"overall_health"[[:space:]]*:[[:space:]]*"[^"]*"' "$latest_audit" | head -1 | sed 's/.*:"//;s/"$//')
+  [[ "$audit_health" == "poor" ]] && health="degraded" && issues="$issues  页面审计健康度差 (poor)\n"
+  [[ "$audit_health" == "fair" ]] && [[ "$health" == "healthy" ]] && health="warning" && issues="$issues  页面审计健康度一般 (fair)\n"
+fi
+
+# 检查漂移扫描基线
+BASELINE="$TASK_DIR/drift-baseline.json"
+if [[ -f "$BASELINE" ]]; then
+  drift_score=$(grep -o '"total_score"[[:space:]]*:[[:space:]]*[0-9]*' "$BASELINE" | head -1 | sed 's/.*://' || echo "")
+  drift_grade=$(grep -o '"grade"[[:space:]]*:[[:space:]]*"[^"]*"' "$BASELINE" | head -1 | sed 's/.*:"//;s/"$//' || echo "")
+  if [[ -n "$drift_grade" ]] && [[ "$drift_grade" == "D" ]]; then
+    health="degraded" && issues="$issues  漂移扫描等级 D (${drift_score:-?}/100)\n"
+  fi
 fi
 
 # 检查 CLI 错误

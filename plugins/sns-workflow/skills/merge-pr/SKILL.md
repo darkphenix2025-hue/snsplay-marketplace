@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:merge-pr
-description: PR 合并命令 —— 在 main 分支上检查所有待合并 PR，按顺序 squash 合并。worktree 分支只 reset 不删除，feature/hotfix 分支合并后清理。
+description: PR 合并命令 —— 在 main 分支上检查所有待合并 PR，CI 状态检查 + flaky 测试自动重试，按顺序 squash 合并。worktree 分支只 reset 不删除，feature/hotfix 分支合并后清理。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -98,6 +98,73 @@ for row in $(echo "$pr_list" | jq -c '.[]'); do
     failed_list="$failed_list  #$pr_number $pr_title ($pr_branch) — 合并冲突\n"
     echo ""
     continue
+  fi
+
+  # 检查 CI 状态（PR 合并前置条件）
+  ci_state=$(gh pr checks "$pr_number" --json state 2>/dev/null | jq -r '.[].state // empty' | sort | uniq -c | sort -rn | head -1)
+  pending_count=$(gh pr checks "$pr_number" --json state 2>/dev/null | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "WAITING")] | length')
+  fail_count=$(gh pr checks "$pr_number" --json state 2>/dev/null | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
+
+  if [[ "$pending_count" -gt 0 ]] 2>/dev/null; then
+    echo "  等待 CI 完成... ($pending_count 项仍在运行)"
+    for attempt in 1 2 3 4 5; do
+      sleep 5
+      pending_count=$(gh pr checks "$pr_number" --json state 2>/dev/null | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "WAITING")] | length')
+      if [[ "$pending_count" -eq 0 ]] 2>/dev/null; then
+        echo "  CI 完成"
+        break
+      fi
+    done
+  fi
+
+  if [[ "$fail_count" -gt 0 ]] 2>/dev/null; then
+    echo "  CI 失败 ($fail_count 项)，尝试 flaky 测试重试..."
+
+    # 获取失败检查的名称，判断是否为 flaky（测试类）
+    failing_checks=$(gh pr checks "$pr_number" --json name,state 2>/dev/null | jq -r '.[] | select(.state == "FAILURE" or .state == "ERROR") | .name')
+
+    # 区分：CI 配置错误 vs flaky 测试
+    # 配置错误（lint、build、type-check）不重试；仅对 test/ci 类重试
+    should_retry=true
+    for check in $failing_checks; do
+      case "$check" in
+        *lint*|*build*|*type*|*compile*) should_retry=false ;;
+        *test*|*ci*|*e2e*) should_retry=true ;;
+        *) should_retry=true ;;  # 未知类型默认尝试重试
+      esac
+      if ! $should_retry; then break; fi
+    done
+
+    if $should_retry; then
+      retry_success=false
+      for retry in 1 2 3; do
+        echo "  重试第 $retry 次..."
+        # 通过重新触发检查（关闭再打开 PR 的 check_suite）
+        gh api repos/:owner/:repo/check-suites --request-method POST --input /dev/null 2>/dev/null || true
+        gh pr checks "$pr_number" --reun "$retry" || true  # 触发 rerun 失败检查
+        sleep 10
+        fail_count=$(gh pr checks "$pr_number" --json state 2>/dev/null | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
+        if [[ "$fail_count" -eq 0 ]] 2>/dev/null; then
+          echo "  重试成功 ($retry 次)"
+          retry_success=true
+          break
+        fi
+      done
+
+      if ! $retry_success; then
+        echo "  CI 重试失败，跳过 PR #$pr_number（3 次重试后仍失败）"
+        failed=$((failed + 1))
+        failed_list="$failed_list  #$pr_number $pr_title ($pr_branch) — CI 失败（重试 3 次）\n"
+        echo ""
+        continue
+      fi
+    else
+      echo "  CI 失败为配置类错误（lint/build），不重试，跳过 PR #$pr_number"
+      failed=$((failed + 1))
+      failed_list="$failed_list  #$pr_number $pr_title ($pr_branch) — CI 配置错误\n"
+      echo ""
+      continue
+    fi
   fi
 
   if [[ "$pr_branch" =~ ^worktree- ]]; then

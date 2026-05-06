@@ -18,7 +18,7 @@ Claude Code plugin marketplace for productivity and development workflows.
 
 ```
 snsplay-marketplace/
-├── plugins/sns-workflow/   # 主工作流插件（16 个 skill）
+├── plugins/sns-workflow/   # 主工作流插件（18 个 skill）
 ├── backup/                 # 旧技能暂存（plugins/skills + SDLC 技能 + TS 脚本）
 ├── docs/                   # 渐进式文档（分层架构）
 └── .claude-plugin/         # marketplace 注册
@@ -26,15 +26,15 @@ snsplay-marketplace/
 
 核心模型: Git 双线分支（main ↔ release）+ 多 worktree 并行开发 + tag 驱动发布
 
-## 技能总览（16 个）
+## 技能总览（18 个）
 
 | 类别 | 技能 | 命令 | 用途 |
 |------|------|------|------|
 | Git 生命周期 | worktree / feature / hotfix / release | `/sns-workflow:<name>` | 分支创建与管理 |
 | 流水线 | commit-push-pr / merge-pr / publish | `/sns-workflow:<name>` | 提交、PR 合并、发布 |
-| 运行时保障 | review / heal | `/sns-workflow:<name>` | 交叉审查、错误恢复 |
+| 运行时保障 | review / heal / ui-verify | `/sns-workflow:<name>` | 交叉审查、错误恢复、UI 验证 |
 | 可观测性 | status / observe | `/sns-workflow:<name>` | 项目状态、工作流运行指标 |
-| 架构/文档 | arch-lint / doc-garden | `/sns-workflow:<name>` | 架构检查、文档整理 |
+| 架构/文档 | arch-lint / doc-garden / drift-scanner | `/sns-workflow:<name>` | 架构检查、文档整理、漂移扫描 |
 | 配置 | setup / create-prompt | `/sns-workflow:<name>` | 初始化、创建自定义 prompt |
 | 同步 | sync | `/sns-workflow:sync` | 远端状态同步 |
 

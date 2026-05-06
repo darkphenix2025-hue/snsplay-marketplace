@@ -23,8 +23,9 @@ main (x.y.z-dev.N)
 | `scripts/version.sh` | 语义化版本号解析、校验、递进 |
 | `scripts/context.sh` | 分支类型检测、工作区状态检查 |
 | `scripts/doc-arch-template.sh` | 文档架构规则（必需目录/文件、check/fix/migrate） |
+| `scripts/arch-lint.sh` | 六层架构检查函数库（可 source 供 arch-lint/drift-scanner 共用） |
 
-## 技能分组（16 个）
+## 技能分组（18 个）
 
 ### Git 生命周期（4）
 
@@ -43,26 +44,28 @@ main (x.y.z-dev.N)
 | `merge-pr` | 获取待合并 PR → squash 合并 → 清理分支 → reset worktree |
 | `publish` | 校验 release 分支 → 打正式 tag → 回流 main |
 
-### 运行时保障（2）
+### 运行时保障（3）
 
-| 技能 | 审查/恢复逻辑 |
-|------|--------------|
+| 技能 | 审查/恢复/验证逻辑 |
+|------|-------------------|
 | `review` | 两视角交叉审查（安全+正确性 vs 架构+可维护性）→ 综合去重 → artifact |
 | `heal` | 读取错误上下文 → 分类（auth/network/conflict 等 9 类）→ 分步恢复计划 |
+| `ui-verify` | 页面快照基线化 → 变更比对 / Bug 复现取证 / Lighthouse 审计 → artifact |
 
 ### 可观测性（2）
 
 | 技能 | 数据源 |
 |------|--------|
 | `status` | git 状态（分支、版本、worktree、提交历史） |
-| `observe` | .snsplay/task/ 产物文件、调试日志、CLI 追踪、review/heal artifact |
+| `observe` | .snsplay/task/ 产物文件、调试日志、CLI 追踪、review/heal/ui-verify artifact |
 
-### 架构/文档（2）
+### 架构/文档（3）
 
 | 技能 | 检查项 |
 |------|--------|
 | `arch-lint` | types/scripts/tests/stages/prompts/skills 六层架构、循环依赖、非法导入 |
 | `doc-garden` | docs/ 目录结构、CLAUDE.md 行数、index.md 索引、首次迁移 |
+| `drift-scanner` | 多维度质量扫描（架构/文档/结构/CI）、加权评分、基线对比、PreToolUse commit 拦截 |
 
 ### 配置/同步（3）
 

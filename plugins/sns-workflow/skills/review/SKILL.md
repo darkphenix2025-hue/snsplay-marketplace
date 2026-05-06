@@ -220,6 +220,73 @@ fi
 
 ---
 
+## 步骤 5.5: 修复+重审循环（仅 needs_changes 时）
+
+**如果步骤 5 判定为 `approved`，跳过此步骤，直接进入步骤 6。**
+
+**如果步骤 5 判定为 `needs_changes`**（存在 must_fix 发现），执行修复循环：
+
+```bash
+MAX_ROUNDS=3
+current_round=0
+review_artifact="$TASK_DIR/review-${TIMESTAMP}.json"
+```
+
+循环逻辑（agent 执行，非 bash）：
+
+对于每一轮（最多 `MAX_ROUNDS` 轮）：
+
+### 5.5a: 读取 must_fix 发现
+
+读取 `$TASK_DIR/review-${TIMESTAMP}.json`（或最新 review artifact），提取 `synthesis.must_fix` 列表。
+
+如果 `must_fix` 为空或 `overall_status` 为 `approved`，退出循环。
+
+### 5.5b: 逐条自动修复
+
+对 `must_fix` 中的每条发现：
+1. 定位 `location`（文件:行号）
+2. 读取文件内容，理解上下文
+3. 按 `suggestion` 执行修复（使用 Edit 工具）
+4. 验证修复不引入新问题（检查语法、逻辑一致性）
+
+修复完成后，`git add` 变更文件。
+
+### 5.5c: 重新审查
+
+对修复后的变更重新执行步骤 3（视角 A）和步骤 4（视角 B），但仅审查修复相关的变更（`git diff --cached`），而非全部原始变更。
+
+### 5.5d: 重新综合
+
+按步骤 5 的逻辑重新去重、分类、排序，生成新的 review artifact：
+- 文件名: `$TASK_DIR/review-${TIMESTAMP}-round{N}.json`
+- 包含 `round` 字段标记轮次
+- 如果 `must_fix` 为空 → `overall_status: "approved"`，退出循环
+
+```bash
+current_round=$((current_round + 1))
+ROUND_ARTIFACT="$TASK_DIR/review-${TIMESTAMP}-round${current_round}.json"
+echo ""
+echo "--- 修复重审第 $current_round 轮 ---"
+echo "Artifact: $ROUND_ARTIFACT"
+```
+
+### 5.5e: 轮次限制
+
+达到 `MAX_ROUNDS` 后仍有 must_fix 发现时：
+- 标记 `overall_status: "needs_changes"`
+- 添加 `max_rounds_reached: true`
+- 输出剩余未修复问题列表
+- 由用户决定是否继续手动修复
+
+```bash
+echo ""
+echo "修复重审: 已达最大轮次 ($MAX_ROUNDS)"
+echo "剩余 must_fix 问题已记录，请手动处理"
+```
+
+---
+
 ## 步骤 6: 汇总报告
 
 输出审查结论:
