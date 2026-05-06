@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "sns-workflow golden principles registry — drift-scanner loads these rules for quality scoring",
   "principles": [
     {
@@ -39,6 +39,15 @@
       "message": "types/ 不应有内部导入: {file}"
     },
     {
+      "id": "no-skill-cross-import",
+      "category": "architecture",
+      "severity": "warning",
+      "description": "skills/ 之间不得直接导入（技能通过 shared scripts 通信，避免 peer 依赖）",
+      "check": "arch-lint",
+      "penalty": 15,
+      "message": "skill '{skill_a}' 不应直接导入 '{skill_b}'，通过 scripts/ 共享"
+    },
+    {
       "id": "claude-md-length",
       "category": "documentation",
       "severity": "warning",
@@ -58,6 +67,15 @@
       "message": "docs/ 缺少必需文件: {missing}"
     },
     {
+      "id": "skill-frontmatter-required",
+      "category": "documentation",
+      "severity": "critical",
+      "description": "每个技能必须有 SKILL.md 且包含 YAML frontmatter（name, description, user-invocable）",
+      "check": "doc-arch",
+      "penalty": 15,
+      "message": "技能 '{skill}' 缺少必需的 frontmatter 字段"
+    },
+    {
       "id": "skill-registration-consistency",
       "category": "structure",
       "severity": "critical",
@@ -74,6 +92,69 @@
       "check": "structure",
       "penalty": 15,
       "message": "技能计数不一致: marketplace={actual}, docs={stated}"
+    },
+    {
+      "id": "scripts-idempotent",
+      "category": "structure",
+      "severity": "warning",
+      "description": "shared scripts 应可安全 source 多次（无副作用重复）",
+      "check": "structure",
+      "penalty": 10,
+      "message": "脚本 '{script}' 可能存在非幂等操作"
+    },
+    {
+      "id": "hook-registration",
+      "category": "structure",
+      "severity": "warning",
+      "description": "新增 hook 脚本必须在 hooks.json 中注册，避免孤立脚本",
+      "check": "structure",
+      "penalty": 10,
+      "message": "hook 脚本 '{script}' 未在 hooks.json 中注册"
+    },
+    {
+      "id": "test-coverage-shared-scripts",
+      "category": "ci_quality",
+      "severity": "warning",
+      "description": "scripts/*.sh 共享脚本应有对应测试（scripts/__tests__/）",
+      "check": "ci",
+      "penalty": 15,
+      "message": "脚本 '{script}' 缺少测试覆盖"
+    },
+    {
+      "id": "plan-artifacts-first-class",
+      "category": "workflow",
+      "severity": "info",
+      "description": "变更应有计划产物（.snsplay/task/plan-*.json），plan 是 first-class artifact",
+      "check": "workflow",
+      "penalty": 0,
+      "message": "无计划产物（运行 /sns-workflow:plan <描述>）"
+    },
+    {
+      "id": "conventional-commit-messages",
+      "category": "workflow",
+      "severity": "info",
+      "description": "提交信息应遵循约定式提交格式（feat/fix/chore/docs/test/refactor）",
+      "check": "workflow",
+      "penalty": 0,
+      "message": "提交信息不符合约定式提交格式"
+    },
+    {
+      "id": "gitignore-snsplay",
+      "category": "structure",
+      "severity": "critical",
+      "description": ".snsplay/task/ 运行时产物不应被 git tracked（应在 .gitignore 中）",
+      "check": "structure",
+      "penalty": 20,
+      "message": ".snsplay/task/ 未加入 .gitignore"
+    },
+    {
+      "id": "hook-security-no-credential-storage",
+      "category": "architecture",
+      "severity": "critical",
+      "description": "脚本和配置不得存储密钥/Token/密码（使用环境变量或 CLI 认证）",
+      "check": "security",
+      "penalty": 30,
+      "message": "检测到硬编码凭证: {file}"
     }
   ]
 }

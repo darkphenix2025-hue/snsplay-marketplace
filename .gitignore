@@ -1,0 +1,11 @@
+# sns-workflow 运行时产物（不提交到仓库）
+.snsplay/task/
+.snsplay/sns-workflow.log
+.snsplay/test-results/
+
+# worktree 工作目录
+.claude/worktrees/
+
+# OS
+.DS_Store
+Thumbs.db

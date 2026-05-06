@@ -5,6 +5,7 @@
 | 文件 | 描述 |
 |------|------|
 | [git-workflow.md](git-workflow.md) | 双线分支模型（main ↔ release + worktree 并行开发） |
+| [harness-engineering.md](harness-engineering.md) | OpenAI Harness Engineering 原文副本（Agent-First 开发范式指导） |
 | [provider-dispatch.md](provider-dispatch.md) | 执行器提供者分发参考（subscription/api/cli） |
 | [skill-conventions.md](skill-conventions.md) | 旧技能开发规范（已归档，仅供参考） |
 
