@@ -13,6 +13,8 @@ allowed-tools: Bash, Read, Write, Grep, Glob, AskUserQuestion, Agent, mcp__chrom
 - `ralph-loop` — 运行一轮差距分析
 - `ralph-loop --auto` — 自动循环直到所有差距补齐
 - `ralph-loop --max-rounds 10` — 自定义最大循环轮次（默认 5）
+- `ralph-loop --min-gaps 2` — 剩余 ≤N 个差距时视为完成（默认 0）
+- `ralph-loop --stall-limit 3` — 连续 N 轮差距不减少时停止（默认 2）
 - `ralph-loop --stop-on-review` — 遇到 review 问题暂停（需要人工确认）
 
 **数据目录**: `.snsplay/task/ralph-loop/`
@@ -36,6 +38,8 @@ mkdir -p "$RALPH_DIR"
 # 解析参数
 AUTO_MODE=false
 MAX_ROUNDS=5
+MIN_GAPS=0
+STALL_LIMIT=2
 STOP_ON_REVIEW=false
 
 for arg in "$@"; do
@@ -43,8 +47,12 @@ for arg in "$@"; do
     --auto) AUTO_MODE=true ;;
     --stop-on-review) STOP_ON_REVIEW=true ;;
     --max-rounds) NEXT_IS_ROUNDS=true ;;
+    --min-gaps) NEXT_IS_MIN_GAPS=true ;;
+    --stall-limit) NEXT_IS_STALL=true ;;
     *)
       [[ "$NEXT_IS_ROUNDS" == "true" ]] && MAX_ROUNDS="$arg" && NEXT_IS_ROUNDS=false
+      [[ "$NEXT_IS_MIN_GAPS" == "true" ]] && MIN_GAPS="$arg" && NEXT_IS_MIN_GAPS=false
+      [[ "$NEXT_IS_STALL" == "true" ]] && STALL_LIMIT="$arg" && NEXT_IS_STALL=false
       ;;
   esac
 done
@@ -54,6 +62,10 @@ TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 echo "=== Ralph Wiggum Loop ==="
 echo "分支: $current_branch"
 echo "模式: $([ "$AUTO_MODE" = true ] && echo "自动 ($MAX_ROUNDS 轮)" || echo "单轮分析")"
+echo "终止条件:"
+echo "  - 最大轮次: $MAX_ROUNDS"
+echo "  - 最小差距: $MIN_GAPS (≤$MIN_GAPS 即完成)"
+echo "  - 停滞检测: $STALL_LIMIT 轮差距不减少即停止"
 echo "停止策略: $([ "$STOP_ON_REVIEW" = true ] && echo "review 暂停" || echo "全自动")"
 ```
 
@@ -167,7 +179,25 @@ print(json.dumps(report, indent=2, ensure_ascii=False))
 
 echo ""
 echo "差距报告: $RALPH_DIR/ralph-round-1.json"
-echo "缺失实践数: $(echo "$GAP_REPORT" | python3 -c "import sys,json; print(json.load(sys.stdin)['total_gaps'])" 2>/dev/null)"
+echo "缺失实践数: $(echo "$GAP_REPORT" | python3 -c "import sys,json; print(json.load(sys.stdin)['total_gaps'])" 2>/dev/null)
+
+# 生成机器可读的完成度检查清单
+python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read())
+checklist = []
+for g in data.get('gaps', []):
+    checklist.append({
+        'id': g['id'],
+        'practice': g['practice'],
+        'status': g['status'],
+        'completion_criteria': g.get('description', ''),
+        'verified': False
+    })
+with open('$RALPH_DIR/checklist.json', 'w') as f:
+    json.dump({'items': checklist, 'generated_round': 1}, f, indent=2, ensure_ascii=False)
+print(f'完成度清单: $RALPH_DIR/checklist.json ({len(checklist)} 项)')
+" <<< "$GAP_REPORT""
 ```
 
 ---
@@ -303,39 +333,124 @@ echo "提示: 如果 STOP_ON_REVIEW=true，每轮开发后暂停等待确认"
 
 ## 步骤 5: Ralph Loop 循环
 
+三层终止条件：
+
+| 条件 | 触发 | 结果 |
+|------|------|------|
+| **硬终止** | 达到 `MAX_ROUNDS` 轮 | 强制停止，报告剩余差距 |
+| **成功终止** | 所有差距标记为 covered（`≤MIN_GAPS`） | 正常完成 |
+| **停滞终止** | 连续 `STALL_LIMIT` 轮差距不减少 | 判定为无法自动补齐，停止 |
+
 ```bash
-ROUND=1
-GAPS_FOUND=$TOTAL_GAPS
+ROUND=0
+PREV_GAPS=-1
+STALL_COUNT=0
+TERMINATION_REASON=""
 
-while [[ "$ROUND" -le "$MAX_ROUNDS" ]] && [[ "$GAPS_FOUND" -gt 0 ]]; do
-  echo ""
-  echo "╔══════════════════════════════════════╗"
-  echo "║  Round $ROUND/$MAX_ROUNDS — 差距: $GAPS_FOUND"
-  echo "╚══════════════════════════════════════╝"
-
-  # Agent 行为: 执行开发
-  echo ""
-  echo "→ Agent 开发缺失技能..."
-  # 1. Agent 读取差距报告
-  # 2. 对每个缺失项创建技能
-  # 3. 注册到 marketplace.json
-  # 4. 更新 CLAUDE.md 和 ARCHITECTURE.md
-  # 5. 运行 review --diff
-  # 6. 运行 qa-gate
-
-  if [[ "$ROUND" -lt "$MAX_ROUNDS" ]]; then
-    echo "→ 开发完成，进入下一轮分析..."
-  fi
-
+while [[ "$ROUND" -lt "$MAX_ROUNDS" ]]; do
   ROUND=$((ROUND + 1))
 
-  # 如果是最后一轮或无更多缺口，退出
-  if [[ "$ROUND" -gt "$MAX_ROUNDS" ]]; then
+  # === 步骤 5a: 差距分析（每轮重新执行）===
+  echo ""
+  echo "╔══════════════════════════════════════╗"
+  echo "║  Round $ROUND/$MAX_ROUNDS"
+  echo "╚══════════════════════════════════════╝"
+
+  # Agent 重新执行差距分析（步骤 2-3 逻辑）
+  # 1. 读取 Harness Engineering 文章
+  # 2. 读取当前技能列表 (ls skills/*/SKILL.md)
+  # 3. 逐个读取 SKILL.md description 字段
+  # 4. 对比实践要求，更新 checklist
+  echo ""
+  echo "→ 重新执行差距分析..."
+
+  # Agent 行为: 更新 checklist.json
+  # Agent 对每个 checklist item 判断:
+  #   - status: "covered" | "missing" | "partial"
+  #   - verified: true | false (Agent 确认过)
+  # 输出到 $RALPH_DIR/ralph-round-$ROUND.json
+
+  # 读取当前差距数
+  GAPS_FOUND=$(python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    data = json.load(f)
+missing = sum(1 for item in data['items'] if item['status'] != 'covered')
+print(missing)
+" 2>/dev/null)
+
+  VERIFIED_COUNT=$(python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    data = json.load(f)
+print(sum(1 for item in data['items'] if item.get('verified', False)))
+" 2>/dev/null)
+
+  TOTAL_COUNT=$(python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    data = json.load(f)
+print(len(data['items']))
+" 2>/dev/null)
+
+  echo "  差距数: $GAPS_FOUND / $TOTAL_COUNT"
+  echo "  已验证: $VERIFIED_COUNT / $TOTAL_COUNT"
+
+  # === 步骤 5b: 三层终止条件检查 ===
+
+  # 1. 成功终止: 所有差距 ≤ MIN_GAPS
+  if [[ "$GAPS_FOUND" -le "$MIN_GAPS" ]]; then
+    TERMINATION_REASON="success"
     echo ""
-    echo "⚠ 达到最大轮次 ($MAX_ROUNDS)"
+    echo "✅ 成功终止: 差距数 $GAPS_FOUND ≤ 最小阈值 $MIN_GAPS"
     break
   fi
+
+  # 2. 停滞终止: 连续 STALL_LIMIT 轮差距不减少
+  if [[ "$PREV_GAPS" -ge 0 ]] && [[ "$GAPS_FOUND" -ge "$PREV_GAPS" ]]; then
+    STALL_COUNT=$((STALL_COUNT + 1))
+    echo "  停滞检测: 连续 $STALL_COUNT/$STALL_LIMIT 轮差距未减少"
+    if [[ "$STALL_COUNT" -ge "$STALL_LIMIT" ]]; then
+      TERMINATION_REASON="stalled"
+      echo ""
+      echo "⏹ 停滞终止: 连续 $STALL_LIMIT 轮差距未减少 ($GAPS_FOUND)"
+      break
+    fi
+  else
+    STALL_COUNT=0
+    echo "  停滞检测: 差距减少中 (之前: $PREV_GAPS → 当前: $GAPS_FOUND)"
+  fi
+
+  PREV_GAPS=$GAPS_FOUND
+
+  # === 步骤 5c: 开发缺失技能 ===
+  if [[ "$GAPS_FOUND" -gt "$MIN_GAPS" ]] && [[ "$ROUND" -lt "$MAX_ROUNDS" ]]; then
+    echo ""
+    echo "→ Agent 开发缺失技能..."
+    # Agent 行为:
+    # 1. 读取 checklist.json，筛选 status != "covered" 的项
+    # 2. 对每个缺失项: 分析实践要求 → 设计技能 → 创建 SKILL.md → 注册
+    # 3. 更新 CLAUDE.md 和 ARCHITECTURE.md
+    # 4. 运行 review --diff 和 qa-gate 验证新技能
+
+    # 如果 STOP_ON_REVIEW=true，暂停等待人工确认
+    if $STOP_ON_REVIEW; then
+      echo ""
+      echo "⏸ 暂停等待确认 (STOP_ON_REVIEW)"
+      # Agent 使用 AskUserQuestion 询问
+      echo "提示: 开发完成，确认继续下一轮分析？"
+    fi
+  fi
 done
+
+# 设置终止原因（如果循环自然结束）
+if [[ -z "$TERMINATION_REASON" ]]; then
+  if [[ "$GAPS_FOUND" -le "$MIN_GAPS" ]]; then
+    TERMINATION_REASON="success"
+  else
+    TERMINATION_REASON="max_rounds"
+  fi
+fi
 ```
 
 ---
@@ -343,16 +458,23 @@ done
 ## 步骤 6: 最终报告
 
 ```bash
-FINAL_ROUND=$((ROUND - 1))
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║  Ralph Loop 完成 — $FINAL_ROUND 轮"
 
-if [[ "$GAPS_FOUND" -eq 0 ]]; then
-  echo "║  ✅ 所有实践均已覆盖"
-else
-  echo "║  ⚠ 剩余 $GAPS_FOUND 个未补齐项"
-fi
+case "$TERMINATION_REASON" in
+  success)
+    echo "║  ✅ 成功 — 所有差距已补齐"
+    echo "║  轮次: $ROUND, 剩余差距: $GAPS_FOUND"
+    ;;
+  stalled)
+    echo "║  ⏹ 停滞 — 连续 $STALL_LIMIT 轮差距不减少"
+    echo "║  轮次: $ROUND, 剩余差距: $GAPS_FOUND"
+    ;;
+  max_rounds)
+    echo "║  ⏹ 上限 — 达到最大轮次 $MAX_ROUNDS"
+    echo "║  剩余差距: $GAPS_FOUND"
+    ;;
+esac
 
 echo "╚══════════════════════════════════════╝"
 
@@ -361,12 +483,14 @@ python3 -c "
 import json
 
 report = {
-    'final_round': $FINAL_ROUND,
+    'final_round': $ROUND,
     'max_rounds': $MAX_ROUNDS,
+    'termination_reason': '$TERMINATION_REASON',
     'total_gaps_remaining': $GAPS_FOUND,
-    'rounds': [
-        # 每轮的差距变化
-    ]
+    'min_gaps_threshold': $MIN_GAPS,
+    'stall_limit': $STALL_LIMIT,
+    'stall_count_at_termination': $STALL_COUNT,
+    'rounds': []
 }
 
 # 读取所有轮次报告
@@ -382,10 +506,15 @@ for rf in round_files:
             'partial_count': len(data.get('partial_practices', []))
         })
 
+# 读取最终检查清单
+with open('$RALPH_DIR/checklist.json') as f:
+    report['final_checklist'] = json.load(f)
+
 with open('$RALPH_DIR/ralph-final.json', 'w') as f:
     json.dump(report, f, indent=2, ensure_ascii=False)
 
 print(f'最终报告: \$RALPH_DIR/ralph-final.json')
+print(f'终止原因: {report[\"termination_reason\"]}')
 print(f'轮次: {report[\"final_round\"]}')
 print(f'剩余差距: {report[\"total_gaps_remaining\"]}')
 " 2>/dev/null
@@ -394,30 +523,56 @@ print(f'剩余差距: {report[\"total_gaps_remaining\"]}')
 ### 完成状态
 
 ```bash
-if [[ "$GAPS_FOUND" -eq 0 ]]; then
-  echo ""
-  echo "🏁 开发任务完成"
-  echo ""
-  echo "所有 Harness Engineering 实践均已覆盖:"
-  echo "  - 文档体系 ✅"
-  echo "  - 架构强制 ✅"
-  echo "  - 质量门禁 ✅"
-  echo "  - 自主闭环 ✅"
-  echo "  - 所有技能已就绪"
-  echo ""
-  echo "后续:"
-  echo "  /sns-workflow:ralph-loop  → 定期重新验证"
-  echo "  /sns-workflow:qa-gate     → 提交前质量检查"
-else
-  echo ""
-  echo "⚠ 开发任务未完全完成"
-  echo "剩余差距: $GAPS_FOUND"
-  echo ""
-  echo "查看完整报告: $RALPH_DIR/ralph-final.json"
-  echo ""
-  echo "如需继续:"
-  echo "  /sns-workflow:ralph-loop --auto --max-rounds $((MAX_ROUNDS + 5))"
-fi
+case "$TERMINATION_REASON" in
+  success)
+    echo ""
+    echo "所有 Harness Engineering 实践均已覆盖"
+    echo "覆盖清单:"
+    python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    for item in json.load(f)['items']:
+        icon = '✅' if item['status'] == 'covered' else '⚠️'
+        print(f\"  {icon} {item['practice']}: {item['status']}\")
+" 2>/dev/null
+    echo ""
+    echo "后续:"
+    echo "  /sns-workflow:ralph-loop  → 定期重新验证"
+    echo "  /sns-workflow:qa-gate     → 提交前质量检查"
+    ;;
+  stalled)
+    echo ""
+    echo "⚠ 自动补齐停滞（连续 $STALL_LIMIT 轮差距不减少）"
+    echo "未覆盖实践:"
+    python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    for item in json.load(f)['items']:
+        if item['status'] != 'covered':
+            print(f\"  ❌ [{item['status']}] {item['practice']}\")
+" 2>/dev/null
+    echo ""
+    echo "建议:"
+    echo "  1. 查看停滞报告: $RALPH_DIR/ralph-final.json"
+    echo "  2. 手动补齐剩余差距后重新验证"
+    echo "  3. 或放宽条件: --min-gaps 2"
+    ;;
+  max_rounds)
+    echo ""
+    echo "⚠ 达到最大轮次 ($MAX_ROUNDS)，仍有 $GAPS_FOUND 个差距"
+    echo "未覆盖实践:"
+    python3 -c "
+import json
+with open('$RALPH_DIR/checklist.json') as f:
+    for item in json.load(f)['items']:
+        if item['status'] != 'covered':
+            print(f\"  ❌ [{item['status']}] {item['practice']}\")
+" 2>/dev/null
+    echo ""
+    echo "继续:"
+    echo "  /sns-workflow:ralph-loop --auto --max-rounds $((MAX_ROUNDS + 5))"
+    ;;
+esac
 ```
 
 ---
