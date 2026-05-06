@@ -25,7 +25,7 @@ main (x.y.z-dev.N)
 | `scripts/doc-arch-template.sh` | 文档架构规则（必需目录/文件、check/fix/migrate） |
 | `scripts/arch-lint.sh` | 六层架构检查函数库（可 source 供 arch-lint/drift-scanner 共用） |
 
-## 技能分组（18 个）
+## 技能分组（19 个）
 
 ### Git 生命周期（4）
 
@@ -44,13 +44,14 @@ main (x.y.z-dev.N)
 | `merge-pr` | 获取待合并 PR → squash 合并 → 清理分支 → reset worktree |
 | `publish` | 校验 release 分支 → 打正式 tag → 回流 main |
 
-### 运行时保障（3）
+### 运行时保障（4）
 
 | 技能 | 审查/恢复/验证逻辑 |
 |------|-------------------|
 | `review` | 两视角交叉审查（安全+正确性 vs 架构+可维护性）→ 综合去重 → artifact |
 | `heal` | 读取错误上下文 → 分类（auth/network/conflict 等 9 类）→ 分步恢复计划 |
 | `ui-verify` | 页面快照基线化 → 变更比对 / Bug 复现取证 / Lighthouse 审计 → artifact |
+| `dev-server` | per-worktree 开发服务器管理（自动检测项目类型 / 启动停止 / 端口分配 / 健康检查） |
 
 ### 可观测性（2）
 
