@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # arch-lint.sh — 六层架构检查函数库
 # 可 source 供 arch-lint skill 和 drift-scanner 共用
-set -euo pipefail
+# 注意: 使用 set -eo pipefail（去掉 -u），因 zsh 下 unset 变量在算术比较中会报错
+set -eo pipefail
 
 # 全局输出变量
 ARCH_TYPE_ERRORS=0
@@ -124,16 +125,17 @@ sns_arch_check_skills() {
     local skill_file="$skill_dir/SKILL.md"
     [[ -f "$skill_file" ]] || continue
 
-    local hardcoded
-    hardcoded=$(grep -n 'plugins/sns-workflow/scripts\|plugins/sns-workflow/types' "$skill_file" 2>/dev/null | grep -v 'CLAUDE_PLUGIN_ROOT' | grep -v '^#' | grep -v '\${')
-    if [[ -n "$hardcoded" ]]; then
+    # 检查硬编码路径（排除使用 CLAUDE_PLUGIN_ROOT 的行）
+    local hardcoded_count
+    hardcoded_count=$(grep 'plugins/sns-workflow/scripts\|plugins/sns-workflow/types' "$skill_file" 2>/dev/null | grep -cv 'CLAUDE_PLUGIN_ROOT\|^#\|\${' 2>/dev/null || echo 0)
+    if [[ "$hardcoded_count" -gt 0 ]]; then
       ARCH_VIOLATIONS+=("$skill_name 硬编码路径（应使用 \${CLAUDE_PLUGIN_ROOT}）")
       ARCH_SKILL_ERRORS=$((ARCH_SKILL_ERRORS + 1))
     fi
 
+    # 检查是否直接引用 types/
     local types_access
-    types_access=$(grep -c "CLAUDE_PLUGIN_ROOT.*types/" "$skill_file" 2>/dev/null || true)
-    types_access=${types_access:-0}
+    types_access=$(grep -c "CLAUDE_PLUGIN_ROOT.*types/" "$skill_file" 2>/dev/null || echo 0)
     if [[ "$types_access" -gt 0 ]] && [[ "$skill_name" != "arch-lint" ]]; then
       ARCH_SKILL_WARNINGS=$((ARCH_SKILL_WARNINGS + 1))
     fi

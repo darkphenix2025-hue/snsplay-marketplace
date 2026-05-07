@@ -17,6 +17,7 @@ _SNS_LOG_FILE="$_SNS_LOG_DIR/skill-executions.log"
 _SNS_SKILL_LOG_DIR="$_SNS_LOG_DIR/skills"
 _SNS_SKILL_NAME=""
 _SNS_SKILL_START_TS=""
+_SNS_SKILL_ENDED=false
 _SNS_MAX_LOG_SIZE=$((5 * 1024 * 1024))  # 5 MB
 
 _sns_log_rotate() {
@@ -48,6 +49,14 @@ _sns_log_write() {
 _sns_ts() {
   date -u +%Y-%m-%dT%H:%M:%S.000Z 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ
 }
+
+# 安全守卫: 即使脚本中途退出，也确保 sns_skill_end 被调用
+_sns_logger_trap() {
+  if [[ "$_SNS_SKILL_ENDED" != "true" ]] && [[ -n "$_SNS_SKILL_NAME" ]]; then
+    _sns_log_write "{\"ts\":\"$(_sns_ts)\",\"skill\":\"${_SNS_SKILL_NAME}\",\"action\":\"end\",\"status\":\"failed\",\"duration_ms\":0,\"details\":\"unexpected exit\"}"
+  fi
+}
+trap '_sns_logger_trap' EXIT
 
 sns_skill_start() {
   _SNS_SKILL_NAME="${1:-unknown}"
@@ -89,6 +98,7 @@ sns_skill_end() {
   fi
   local escaped="${details//\"/\\\"}"
   _sns_log_write "{\"ts\":\"${ts}\",\"skill\":\"${_SNS_SKILL_NAME}\",\"action\":\"end\",\"status\":\"${status}\",\"duration_ms\":${duration_ms},\"details\":\"${escaped}\"}"
+  _SNS_SKILL_ENDED=true
   _SNS_SKILL_NAME=""
   _SNS_SKILL_START_TS=""
 }

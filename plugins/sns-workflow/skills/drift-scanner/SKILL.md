@@ -85,7 +85,7 @@ fi
 
 ---
 
-## 步骤 1: 架构扫描
+# 步骤 1: 架构扫描
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
@@ -105,6 +105,10 @@ echo "  技能层警告: $ARCH_SKILL_WARNINGS"
 
 arch_score=$(sns_arch_score)
 echo "  架构评分: $arch_score / 100"
+
+# 写入临时文件（步骤间状态传递，因每个 bash 代码块是独立进程）
+echo "$arch_score" > "$TASK_DIR/.drift-arch-score"
+echo "$(sns_arch_total_errors)" > "$TASK_DIR/.drift-arch-errors"
 ```
 
 ---
@@ -187,6 +191,11 @@ echo "  文档评分: $doc_score / 100"
 for item in "${doc_issues[@]+"${doc_issues[@]}"}"; do
   echo "  ⚠ $item"
 done
+
+# 步骤间状态传递
+echo "$doc_score" > "$TASK_DIR/.drift-doc-score"
+echo "${#doc_issues[@]}" > "$TASK_DIR/.drift-doc-issues"
+printf '%s\n' "${doc_issues[@]+"${doc_issues[@]}"}" > "$TASK_DIR/.drift-doc-items"
 ```
 
 ---
@@ -237,6 +246,11 @@ echo "  结构评分: $struct_score / 100"
 for item in "${struct_issues[@]+"${struct_issues[@]}"}"; do
   echo "  ⚠ $item"
 done
+
+# 步骤间状态传递
+echo "$struct_score" > "$TASK_DIR/.drift-struct-score"
+echo "${#struct_issues[@]}" > "$TASK_DIR/.drift-struct-issues"
+printf '%s\n' "${struct_issues[@]+"${struct_issues[@]}"}" > "$TASK_DIR/.drift-struct-items"
 ```
 
 ---
@@ -293,6 +307,11 @@ echo "  CI/质量评分: $ci_score / 100"
 for item in "${ci_issues[@]+"${ci_issues[@]}"}"; do
   echo "  ⚠ $item"
 done
+
+# 步骤间状态传递
+echo "$ci_score" > "$TASK_DIR/.drift-ci-score"
+echo "${#ci_issues[@]}" > "$TASK_DIR/.drift-ci-issues"
+printf '%s\n' "${ci_issues[@]+"${ci_issues[@]}"}" > "$TASK_DIR/.drift-ci-items"
 ```
 
 ---
@@ -300,6 +319,19 @@ done
 ## 步骤 5: 评分 + 基线对比
 
 ```bash
+# 从临时文件读取步骤 1-4 的评分（每个 bash 代码块是独立进程）
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
+TASK_DIR="$ROOT/.snsplay/task"
+
+arch_score=$(cat "$TASK_DIR/.drift-arch-score" 2>/dev/null || echo 100)
+doc_score=$(cat "$TASK_DIR/.drift-doc-score" 2>/dev/null || echo 100)
+struct_score=$(cat "$TASK_DIR/.drift-struct-score" 2>/dev/null || echo 100)
+ci_score=$(cat "$TASK_DIR/.drift-ci-score" 2>/dev/null || echo 100)
+arch_errors=$(cat "$TASK_DIR/.drift-arch-errors" 2>/dev/null || echo 0)
+doc_issues_count=$(cat "$TASK_DIR/.drift-doc-issues" 2>/dev/null || echo 0)
+struct_issues_count=$(cat "$TASK_DIR/.drift-struct-issues" 2>/dev/null || echo 0)
+ci_issues_count=$(cat "$TASK_DIR/.drift-ci-issues" 2>/dev/null || echo 0)
+
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 # 加权总分: 架构30% + 文档20% + 结构20% + CI/质量30%
