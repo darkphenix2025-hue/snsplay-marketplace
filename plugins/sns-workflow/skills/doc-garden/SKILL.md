@@ -12,7 +12,10 @@ allowed-tools: Bash
 **参数**:
 - `--check` — 仅检查，不修改
 - `--fix` — 检查并自动修复（创建缺失目录和模板文件）
+- `--cron` — Cron 自动化模式（仅 main worktree 执行写入，其他分支跳过）
 - 无参数 — 首次运行自动迁移，后续运行自动检查+修复
+
+**Cron 调度**: 使用 `scripts/cron-runner.sh doc-garden` 包装，自动限定 main worktree 运行。
 
 ---
 
@@ -34,12 +37,27 @@ fi
 
 # 解析参数
 MODE="auto"
+CRON_MODE=false
 for arg in "$@"; do
   case "$arg" in
     --check) MODE="check" ;;
     --fix) MODE="fix" ;;
+    --cron) CRON_MODE=true ;;
   esac
 done
+
+# Cron 模式: 仅 main worktree 执行写入，非 main 跳过
+if $CRON_MODE && ! sns_is_main_worktree; then
+  echo "[cron] 跳过: 不在 main worktree (当前: $current_branch)"
+  sns_skill_end "skipped" "cron: not on main worktree"
+  exit 0
+fi
+
+if $CRON_MODE && ! sns_cron_lock "doc-garden"; then
+  echo "[cron] 跳过: 已有其他 doc-garden 实例运行"
+  sns_skill_end "skipped" "cron: lock busy"
+  exit 0
+fi
 
 echo "当前分支: $current_branch | 模式: $MODE"
 ```
@@ -168,4 +186,7 @@ else
 fi
 
 sns_skill_end "success"
+
+# Cron 模式释放锁
+if $CRON_MODE; then sns_cron_unlock "doc-garden"; fi
 ```

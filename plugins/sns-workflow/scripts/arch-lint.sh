@@ -132,7 +132,8 @@ sns_arch_check_skills() {
     fi
 
     local types_access
-    types_access=$(grep -c "CLAUDE_PLUGIN_ROOT.*types/" "$skill_file" 2>/dev/null || echo "0")
+    types_access=$(grep -c "CLAUDE_PLUGIN_ROOT.*types/" "$skill_file" 2>/dev/null || true)
+    types_access=${types_access:-0}
     if [[ "$types_access" -gt 0 ]] && [[ "$skill_name" != "arch-lint" ]]; then
       ARCH_SKILL_WARNINGS=$((ARCH_SKILL_WARNINGS + 1))
     fi

@@ -9,9 +9,17 @@ allowed-tools: Bash
 
 多维度质量扫描：架构 + 文档 + 结构 + CI/质量。加权评分 + 基线对比，自动检测退化趋势。
 
+**参数**:
+- `--check` — 仅检查，不修改
+- `--fix` — 检查并自动修复
+- `--cron` — Cron 自动化模式（仅 main worktree 执行写入，其他分支跳过）
+- 无参数 — 完整扫描
+
 **前置条件**: `scripts/arch-lint.sh`、`scripts/doc-arch-template.sh` 已就位。
 
 **黄金原则**: 自动加载 `.snsplay/principles.json`（如存在），按 category 路由到对应扫描步骤，自定义 penalty 覆盖默认扣分。
+
+**Cron 调度**: 使用 `scripts/cron-runner.sh drift-scanner` 包装，自动限定 main worktree 运行。
 
 ---
 
@@ -19,8 +27,25 @@ allowed-tools: Bash
 
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/context.sh"
 source "$SHELL_DIR/skill-logger.sh"
 sns_skill_start "drift-scanner" "$*"
+
+# Cron 模式: 仅 main worktree 执行写入，非 main 跳过
+CRON_MODE=false
+for _arg in "$@"; do [[ "$_arg" == "--cron" ]] && CRON_MODE=true; done
+
+if $CRON_MODE && ! sns_is_main_worktree; then
+  echo "[cron] 跳过: 不在 main worktree (当前: $(git branch --show-current))"
+  sns_skill_end "skipped" "cron: not on main worktree"
+  exit 0
+fi
+
+if $CRON_MODE && ! sns_cron_lock "drift-scanner"; then
+  echo "[cron] 跳过: 已有其他 drift-scanner 实例运行"
+  sns_skill_end "skipped" "cron: lock busy"
+  exit 0
+fi
 
 PRINCIPLES_FILE="$ROOT/.snsplay/principles.json"
 PRINCIPLES_ARCH=()
@@ -409,4 +434,7 @@ echo "Artifact: $ARTIFACT"
 echo "基线: $BASELINE"
 
 sns_skill_end "success"
+
+# Cron 模式释放锁
+if $CRON_MODE; then sns_cron_unlock "drift-scanner"; fi
 ```
