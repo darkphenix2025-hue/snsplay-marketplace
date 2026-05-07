@@ -25,6 +25,10 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 ## 步骤 1: 收集错误上下文
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "heal" "$*"
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
 LOG_DIR="$ROOT/.snsplay"
@@ -301,6 +305,9 @@ if [[ -f "$ARTIFACT" ]]; then
   fi
 else
   echo "错误: heal artifact 未生成"
+  sns_skill_error "heal artifact 未生成"
   exit 1
 fi
+
+sns_skill_end "success"
 ```

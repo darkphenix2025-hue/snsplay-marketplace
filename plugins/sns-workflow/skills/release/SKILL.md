@@ -19,6 +19,8 @@ allowed-tools: Bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "release" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -129,4 +131,6 @@ echo "  1. /sns-workflow:commit-push-pr       → 自动打 $version-beta"
 echo "  2. /sns-workflow:commit-push-pr       → 迭代 $version-beta.2 ..."
 echo "  3. /sns-workflow:commit-push-pr --rc  → 进入 RC 阶段 $version-rc.1"
 echo "  4. /sns-workflow:publish              → 正式发布 $version + 回流 main"
+
+sns_skill_end "success"
 ```

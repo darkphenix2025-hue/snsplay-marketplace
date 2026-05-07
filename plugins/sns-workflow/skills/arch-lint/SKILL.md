@@ -25,6 +25,10 @@ allowed-tools: Bash
 ## 步骤 1: 验证环境
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "arch-lint" "$*"
+
 ROOT="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}"
 
 if [[ ! -d "$ROOT/types" ]] || [[ ! -d "$ROOT/scripts" ]]; then
@@ -291,6 +295,9 @@ else
   [[ "$CIRCULAR_ERRORS" -gt 0 ]] && echo "  循环依赖: $CIRCULAR_ERRORS"
   [[ "$SKILL_ERRORS" -gt 0 ]] && echo "  技能层违规: $SKILL_ERRORS"
   [[ "$SKILL_WARNINGS" -gt 0 ]] && echo "  技能层警告: $SKILL_WARNINGS"
+  sns_skill_error "arch violations: $TOTAL"
+  sns_skill_end "failed" "$TOTAL violations"
   exit 1
 fi
+sns_skill_end "success" "0 violations"
 ```

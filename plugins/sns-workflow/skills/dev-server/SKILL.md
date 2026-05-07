@@ -24,6 +24,8 @@ allowed-tools: Bash, Read, Write, AskUserQuestion
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "dev-server" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -456,4 +458,6 @@ d['servers'] = cleaned
 with open('$SERVER_TRACKER', 'w') as f:
     json.dump(d, f, indent=2)
 "
+
+sns_skill_end "success"
 ```

@@ -23,6 +23,10 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 ## 步骤 1: 检测审查目标
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "review" "$*"
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
 
@@ -317,6 +321,9 @@ if [[ -f "$ARTIFACT" ]]; then
   fi
 else
   echo "错误: 审查 artifact 未生成"
+  sns_skill_error "审查 artifact 未生成"
   exit 1
 fi
+
+sns_skill_end "success"
 ```

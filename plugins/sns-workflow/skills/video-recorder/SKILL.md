@@ -23,6 +23,10 @@ allowed-tools: Bash, Read, Write, Grep, mcp__chrome-devtools__take_snapshot, mcp
 ## 步骤 1: 参数解析与环境检查
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "video-recorder" "$*"
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
 mkdir -p "$TASK_DIR"
@@ -326,4 +330,6 @@ echo "后续操作:"
 echo "  /sns-workflow:ui-verify --reproduce <描述>  → 补充 UI 取证"
 echo "  /sns-workflow:video-recorder --verify        → 录制修复验证"
 echo "  /sns-workflow:video-recorder --reproduce ... → 录制新的复现"
+
+sns_skill_end "success"
 ```

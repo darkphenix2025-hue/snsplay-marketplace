@@ -78,6 +78,8 @@ final_description="$raw_description"
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "plan" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -408,4 +410,6 @@ else
   echo "  2. 完成后执行: /sns-workflow:commit-push-pr"
   echo "  3. 系统将自动: 推送到 main"
 fi
+
+sns_skill_end "success"
 ```

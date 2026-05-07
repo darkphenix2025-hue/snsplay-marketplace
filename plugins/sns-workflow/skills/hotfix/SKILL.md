@@ -21,6 +21,8 @@ allowed-tools: Bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "hotfix" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -226,4 +228,6 @@ echo "  1. 修复代码（开发阶段不手动 commit）"
 echo "  2. 完成后执行: /sns-workflow:commit-push-pr"
 echo "  3. 系统将自动: 打 tag $target_version → 回流 main"
 echo "     如有活动 release/*，也会同步修复"
+
+sns_skill_end "success"
 ```

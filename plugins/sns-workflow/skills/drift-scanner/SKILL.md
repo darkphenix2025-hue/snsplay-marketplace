@@ -18,6 +18,10 @@ allowed-tools: Bash
 ## 步骤 0: 加载黄金原则注册表
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "drift-scanner" "$*"
+
 PRINCIPLES_FILE="$ROOT/.snsplay/principles.json"
 PRINCIPLES_ARCH=()
 PRINCIPLES_DOC=()
@@ -403,4 +407,6 @@ echo ""
 echo "=== drift-scanner 完成 ==="
 echo "Artifact: $ARTIFACT"
 echo "基线: $BASELINE"
+
+sns_skill_end "success"
 ```

@@ -16,6 +16,8 @@ allowed-tools: Bash
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "sync" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -93,4 +95,6 @@ echo "=== 同步结果 ==="
 echo "当前分支: $(git branch --show-current)"
 echo "最新 3 个提交:"
 git log --oneline -3
+
+sns_skill_end "success"
 ```

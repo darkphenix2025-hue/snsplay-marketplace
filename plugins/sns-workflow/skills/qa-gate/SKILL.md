@@ -28,6 +28,8 @@ allowed-tools: Bash, Read, Write, Grep, Glob, AskUserQuestion
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "qa-gate" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -776,4 +778,6 @@ if [[ -z "$PLAN_FILE" ]] && [[ -z "$REVIEW_FILE" ]] && [[ -z "$UI_VERIFY_FILE" ]
     echo "  /sns-workflow:qa-gate           → 提交前质量门禁"
   fi
 fi
+
+sns_skill_end "success"
 ```

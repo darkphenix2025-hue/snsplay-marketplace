@@ -19,6 +19,8 @@ allowed-tools: Bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "publish" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -175,4 +177,6 @@ echo "最新提交: $(git log --oneline -1)"
 echo ""
 echo "release 分支已自动清理"
 echo "main 已进入下一开发态"
+
+sns_skill_end "success"
 ```

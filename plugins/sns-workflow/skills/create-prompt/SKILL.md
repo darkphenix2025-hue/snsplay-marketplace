@@ -21,7 +21,11 @@ allowed-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
 列出所有可用的系统提示，让用户知道存在什么：
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "create-prompt" "$*"
 bun "${CLAUDE_PLUGIN_ROOT}/scripts/system-prompts.ts" discover
+sns_skill_end "success" "discovered prompts"
 ```
 
 向用户呈现列表："以下是当前的系统提示（内置 + 自定义）。你想创建哪种类型的提示？"

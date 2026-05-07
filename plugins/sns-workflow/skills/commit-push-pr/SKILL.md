@@ -33,6 +33,8 @@ allowed-tools: Bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "commit-push-pr" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -377,4 +379,6 @@ fi
 if [[ "$branch_type" == "release" ]]; then
   echo "预发布 tag: $next_tag"
 fi
+
+sns_skill_end "success"
 ```

@@ -21,6 +21,8 @@ allowed-tools: Bash
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "doc-garden" "$*"
 source "$SHELL_DIR/doc-arch-template.sh"
 
 # 确认在 git 仓库中
@@ -164,4 +166,6 @@ if [[ "$CHECK_EXIT" -eq 0 ]]; then
 else
   echo "状态: 待修复"
 fi
+
+sns_skill_end "success"
 ```

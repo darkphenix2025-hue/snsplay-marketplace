@@ -20,6 +20,8 @@ allowed-tools: Bash
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "worktree" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -206,4 +208,6 @@ fi
 if [[ "$failed" -gt 0 ]]; then
   echo "失败: $failed 个"
 fi
+
+sns_skill_end "success"
 ```

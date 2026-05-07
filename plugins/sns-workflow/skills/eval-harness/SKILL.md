@@ -33,6 +33,8 @@ allowed-tools: Bash, Read, Write, Grep, Glob
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "eval-harness" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -665,4 +667,6 @@ print(f'Artifact updated: $TASK_DIR/${EVAL_ID}.json')
     echo "  /sns-workflow:commit-push-pr   → 提交变更"
   fi
 fi
+
+sns_skill_end "success"
 ```

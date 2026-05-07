@@ -28,6 +28,8 @@ allowed-tools: Bash, Read, Write, Grep, Glob, AskUserQuestion, Agent, mcp__chrom
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "ralph-loop" "$*"
 
 current_branch=$(git branch --show-current)
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
@@ -607,4 +609,6 @@ with open(baseline_file, 'w') as f:
 
 print(f'基准线已更新: \$baseline_file')
 " 2>/dev/null
+
+sns_skill_end "success"
 ```

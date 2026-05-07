@@ -14,6 +14,10 @@ allowed-tools: Bash
 ## 步骤 1: 基本信息
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "status" "$*"
+
 current_branch=$(git branch --show-current)
 remote_url=$(git remote get-url origin 2>/dev/null || echo "无远端")
 commit_count=$(git rev-list --count HEAD 2>/dev/null || echo "0")
@@ -215,4 +219,6 @@ git log --oneline --format="%h %C(auto)%d%Creset %s (%cr)" -20 | head -5
 today_count=$(git log --since="00:00" --oneline 2>/dev/null | wc -l | tr -d ' ')
 echo ""
 echo "今日提交: $today_count"
+
+sns_skill_end "success"
 ```

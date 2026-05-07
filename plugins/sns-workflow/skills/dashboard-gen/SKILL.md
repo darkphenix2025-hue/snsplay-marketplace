@@ -26,6 +26,8 @@ allowed-tools: Bash, Read, Write, Glob
 ```bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "dashboard-gen" "$*"
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
@@ -504,4 +506,6 @@ echo "后续操作:"
 echo "  将生成的 JSON 导入 Grafana 即可使用"
 echo "  /sns-workflow:dashboard-gen --refresh   → 强制重建"
 echo "  /sns-workflow:observe                    → 查看运行指标"
+
+sns_skill_end "success"
 ```

@@ -22,6 +22,10 @@ allowed-tools: Bash, Read, Write, Grep, Glob, mcp__chrome-devtools__take_snapsho
 ## 步骤 1: 参数解析与环境校验
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "ui-verify" "$*"
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
 mkdir -p "$TASK_DIR"
@@ -444,6 +448,9 @@ if [[ -f "$ARTIFACT" ]]; then
   esac
 else
   echo "错误: ui-verify artifact 未生成"
+  sns_skill_error "ui-verify artifact 未生成"
   exit 1
 fi
+
+sns_skill_end "success"
 ```

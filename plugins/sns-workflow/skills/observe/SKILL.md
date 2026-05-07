@@ -1,6 +1,6 @@
 ---
 name: sns-workflow:observe
-description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告（覆盖 review/heal/ui-verify artifact）。未来增强: 支持 LogQL/PromQL 查询能力。
+description: 智能体可观测性 —— 汇总工作流执行状态、成功率、耗时指标、错误模式。读取 .snsplay/task/ 产物文件和日志，生成运维视角的运行报告（覆盖 review/heal/ui-verify artifact + 技能执行日志）。未来增强: 支持 LogQL/PromQL 查询能力。
 user-invocable: true
 allowed-tools: Bash
 ---
@@ -13,12 +13,17 @@ allowed-tools: Bash
 - `.snsplay/task/` — 工作流产物文件（manifest、impl-result、review 输出）
 - `.snsplay/sns-workflow.log` — 调试日志（需启用 debug 模式）
 - `.snsplay/task/cli_trace.log` — CLI 进程 stderr 追踪
+- `~/.sns-workflow/skill-executions.log` — 技能执行跟踪日志（所有技能）
 
 ---
 
 ## 步骤 1: 检查工作流状态
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "observe" "$*"
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
 TASK_DIR="$ROOT/.snsplay/task"
 
@@ -307,6 +312,48 @@ fi
 
 ---
 
+## 步骤 4.5: 技能执行日志分析
+
+```bash
+EXEC_LOG_DIR="${HOME}/.sns-workflow"
+EXEC_LOG_FILE="$EXEC_LOG_DIR/skill-executions.log"
+
+echo ""
+echo "=== 技能执行日志 ==="
+
+if [[ ! -f "$EXEC_LOG_FILE" ]]; then
+  echo "技能执行日志不存在（首次执行技能后将生成）"
+else
+  exec_lines=$(wc -l < "$EXEC_LOG_FILE" | tr -d ' ')
+  exec_size=$(du -h "$EXEC_LOG_FILE" | cut -f1)
+  echo "日志大小: $exec_size ($exec_lines 条记录)"
+
+  # 技能调用统计
+  echo ""
+  echo "技能调用排行:"
+  grep '"action":"start"' "$EXEC_LOG_FILE" 2>/dev/null | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | sort | uniq -c | sort -rn | head -10 | while read count skill; do
+    # 统计该技能的 success/error 数
+    success_count=$(grep "\"skill\":\"$skill\"" "$EXEC_LOG_FILE" 2>/dev/null | grep -c '"action":"end"')
+    error_count=$(grep "\"skill\":\"$skill\"" "$EXEC_LOG_FILE" 2>/dev/null | grep -c '"action":"error"')
+    echo "  $skill: 调用 $count 次 (成功 $success_count, 错误 $error_count)"
+  done
+
+  # 最近错误
+  recent_errors=$(grep '"action":"error"' "$EXEC_LOG_FILE" 2>/dev/null | tail -3)
+  if [[ -n "$recent_errors" ]]; then
+    echo ""
+    echo "最近错误:"
+    echo "$recent_errors" | while IFS= read -r err_line; do
+      err_skill=$(echo "$err_line" | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//')
+      err_msg=$(echo "$err_line" | grep -o '"error":"[^"]*"' | sed 's/"error":"//;s/"//')
+      echo "  [$err_skill] $err_msg"
+    done
+  fi
+fi
+```
+
+---
+
 ## 步骤 5: CLI 错误追踪
 
 ```bash
@@ -413,4 +460,5 @@ fi
 
 echo "数据目录: $TASK_DIR"
 echo "日志文件: ${LOG_FILE:-未启用}"
+sns_skill_end "success"
 ```

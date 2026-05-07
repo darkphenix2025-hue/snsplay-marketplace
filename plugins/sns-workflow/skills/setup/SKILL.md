@@ -18,6 +18,10 @@ allowed-tools: Bash
 ## 步骤 1: 验证环境与解析参数
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "setup" "$*"
+
 FORCE=false
 [[ "${1:-}" == "--force" ]] && FORCE=true
 
@@ -133,4 +137,6 @@ echo "=== 项目初始化完成 ==="
 echo "版本: v0.0.0"
 echo "目录: .sns-workflow/（项目配置和状态）"
 echo "脚本: 直接引用插件 shell/ 目录（version.sh + context.sh）"
+
+sns_skill_end "success"
 ```

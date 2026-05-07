@@ -23,6 +23,8 @@ allowed-tools: Bash
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/version.sh"
 source "$SHELL_DIR/context.sh"
+source "$SHELL_DIR/skill-logger.sh"
+sns_skill_start "merge-pr" "$*"
 
 current_branch=$(git branch --show-current)
 branch_type=$(sns_branch_type)
@@ -294,4 +296,6 @@ if [[ -n "$cleaned" ]]; then
   echo "已清理本地分支:"
   echo -e "$cleaned"
 fi
+
+sns_skill_end "success"
 ```
