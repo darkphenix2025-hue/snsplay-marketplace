@@ -135,6 +135,10 @@ fi
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/doc-arch-template.sh"
 
+ROOT=$(_sns_doc_root)
+TASK_DIR="$ROOT/.snsplay/task"
+mkdir -p "$TASK_DIR"
+
 echo ""
 echo "=== 文档架构检查 ==="
 CHECK_OUTPUT=$(sns_doc_check --report 2>&1)
@@ -145,6 +149,11 @@ if [[ "$CHECK_EXIT" -eq 0 ]]; then
 else
   echo "$CHECK_OUTPUT"
 fi
+
+# 步骤间状态传递（每个 bash 块是独立进程）
+echo "$CHECK_EXIT" > "$TASK_DIR/.doc-garden-check-exit"
+echo "$MODE" > "$TASK_DIR/.doc-garden-mode"
+echo "$IS_FIRST_RUN" > "$TASK_DIR/.doc-garden-first-run"
 ```
 
 ---
@@ -157,6 +166,13 @@ fi
 SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
 source "$SHELL_DIR/doc-arch-template.sh"
 
+ROOT=$(_sns_doc_root)
+TASK_DIR="$ROOT/.snsplay/task"
+
+# 从临时文件读取步骤 5 的状态
+CHECK_EXIT=$(cat "$TASK_DIR/.doc-garden-check-exit" 2>/dev/null || echo 1)
+MODE=$(cat "$TASK_DIR/.doc-garden-mode" 2>/dev/null || echo "auto")
+
 if [[ "$MODE" == "fix" ]] || [[ "$MODE" == "auto" ]]; then
   if [[ "$CHECK_EXIT" -ne 0 ]]; then
     echo ""
@@ -165,6 +181,9 @@ if [[ "$MODE" == "fix" ]] || [[ "$MODE" == "auto" ]]; then
     echo ""
     echo "已创建缺失的目录结构和模板文件。"
     echo "请手动填写内容文件（CLAUDE.md、ARCHITECTURE.md 等）。"
+  else
+    echo ""
+    echo "检查已通过，无需修复。"
   fi
 fi
 ```
@@ -174,6 +193,15 @@ fi
 ## 步骤 7: 输出汇总
 
 ```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+ROOT=$(_sns_doc_root 2>/dev/null || echo "${PWD}")
+TASK_DIR="$ROOT/.snsplay/task"
+
+# 从临时文件读取状态
+CHECK_EXIT=$(cat "$TASK_DIR/.doc-garden-check-exit" 2>/dev/null || echo 1)
+MODE=$(cat "$TASK_DIR/.doc-garden-mode" 2>/dev/null || echo "auto")
+IS_FIRST_RUN=$(cat "$TASK_DIR/.doc-garden-first-run" 2>/dev/null || echo "false")
+
 echo ""
 echo "=== doc-garden 完成 ==="
 echo "模式: $MODE"
@@ -188,5 +216,9 @@ fi
 sns_skill_end "success"
 
 # Cron 模式释放锁
-if $CRON_MODE; then sns_cron_unlock "doc-garden"; fi
+if [[ "$CRON_MODE" == "true" ]]; then sns_cron_unlock "doc-garden"; fi
+
+# === 终止指令 ===
+# doc-garden 已执行完毕，不要再重复执行任何检查命令。
+# 如果状态为"合规"，直接退出，无需进一步操作。
 ```
