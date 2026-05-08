@@ -59,6 +59,50 @@ for arg in "$@"; do
   esac
 done
 
+# 安全辅助函数
+# 重试包装器: 处理 API Error / JSON parse 错误
+# 用法: sns_retry N "command" "error_description"
+sns_retry() {
+  local max_attempts=$1
+  local cmd="$2"
+  local desc="$3"
+  local attempt=0
+  local result=""
+
+  while [[ "$attempt" -lt "$max_attempts" ]]; do
+    attempt=$((attempt + 1))
+    result=$(eval "$cmd" 2>&1)
+    local exit_code=$?
+
+    # 检查是否包含 JSON parse 错误
+    if echo "$result" | grep -qi "Failed to parse JSON\|JSONDecodeError\|Expecting value"; then
+      echo "[重试 $desc] 第 $attempt/$max_attempts 次尝试失败 (JSON parse 错误)"
+      sleep 1
+      continue
+    fi
+
+    # 检查是否包含 API 错误
+    if echo "$result" | grep -qi "API Error"; then
+      echo "[重试 $desc] 第 $attempt/$max_attempts 次尝试失败 (API 错误)"
+      sleep 1
+      continue
+    fi
+
+    # 成功
+    if [[ $exit_code -eq 0 ]]; then
+      echo "$result"
+      return 0
+    fi
+
+    echo "[重试 $desc] 第 $attempt/$max_attempts 次尝试失败 (退出码: $exit_code)"
+    sleep 1
+  done
+
+  echo "[重试 $desc] 失败: 已尝试 $max_attempts 次"
+  echo "$result"
+  return 1
+}
+
 TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
 echo "=== Ralph Wiggum Loop ==="
