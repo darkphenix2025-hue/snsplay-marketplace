@@ -91,6 +91,40 @@ fi
 
 ---
 
+## 步骤 1.6: 项目 CI 检查
+
+```bash
+SHELL_DIR="${CLAUDE_PLUGIN_ROOT:-plugins/sns-workflow}/scripts"
+source "$SHELL_DIR/ci-runner.sh"
+
+# 解析 --skip-ci 参数
+SKIP_CI=false
+for arg in "$@"; do
+  [[ "$arg" == "--skip-ci" ]] && SKIP_CI=true
+done
+
+sns_ci_detect
+
+if ! $SKIP_CI && [[ "$CI_TYPE" != "unknown" ]]; then
+  sns_ci_all
+  CI_EXIT=$?
+
+  if [[ "$CI_EXIT" -ne 0 ]]; then
+    echo ""
+    echo "⚠ CI 检查未通过，建议修复后再提交"
+    echo "使用 --skip-ci 参数可跳过此检查"
+  fi
+else
+  if $SKIP_CI; then
+    echo "CI 检查已跳过 (--skip-ci)"
+  else
+    echo "未检测到已知项目类型，跳过 CI 检查"
+  fi
+fi
+```
+
+---
+
 ## 步骤 2: 自动 Commit
 
 ```bash
