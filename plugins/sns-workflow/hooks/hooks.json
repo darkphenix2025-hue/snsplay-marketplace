@@ -1,6 +1,17 @@
 {
-  "description": "sns-workflow hooks（doc-garden + drift-scanner）",
+  "description": "sns-workflow hooks（doc-garden + drift-scanner + prompt-optimize）",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/skills/prompt-optimize/bin/user-prompt-submit.sh"]
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
