@@ -45,6 +45,18 @@
         "./skills/security-check",
         "./skills/ai-security-review"
       ]
+    },
+    {
+      "name": "crux",
+      "description": "请求分拣与治理框架 — 分析请求、分类路由、分派 agent 执行",
+      "version": "0.0.1",
+      "author": { "name": "KimYxx0207" },
+      "source": "./plugins/crux",
+      "strict": false,
+      "category": "governance",
+      "skills": [
+        "./skills/order"
+      ]
     }
   ]
 }
