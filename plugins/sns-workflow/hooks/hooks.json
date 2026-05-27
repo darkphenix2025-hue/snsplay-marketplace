@@ -1,5 +1,5 @@
 {
-  "description": "sns-workflow hooks（doc-garden + drift-scanner + prompt-optimize）",
+  "description": "sns-workflow hooks（doc-garden + drift-scanner + prompt-optimize + security-check）",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -23,6 +23,21 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/skills/drift-scanner/bin/scan-on-commit.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/skills/security-check/bin/security-gate.sh"]
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/skills/security-check/bin/security-gate.sh"]
           }
         ]
       }

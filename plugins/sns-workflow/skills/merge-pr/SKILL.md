@@ -233,7 +233,10 @@ git pull origin main
 
 # 重置所有已合并的 worktree 分支到 origin/main
 # 跨环境安全: 如果 worktree 目录在当前环境不可见，保留分支不删除
+# 重要: reset 后必须 force push 远程分支，清除 squash merge 产生的幽灵 commit
+# 否则下次 sync 时 ahead 计数会包含这些幽灵 commit，导致 rebase 冲突或代码丢失
 reset=""
+force_pushed=""
 for wt_branch in $worktree_branches; do
   reset_done=false
 
@@ -245,6 +248,10 @@ for wt_branch in $worktree_branches; do
          git -C "$derived_path" diff --cached --quiet 2>/dev/null; then
         git -C "$derived_path" fetch origin main
         git -C "$derived_path" reset --hard origin/main
+        # force push 清除远程分支上的幽灵 commit（squash merge 旧 hash）
+        git -C "$derived_path" push --force origin "$wt_branch" 2>/dev/null && \
+          force_pushed="$force_pushed  $wt_branch\n" || \
+          echo "  警告: $wt_branch force push 失败（可能无远程追踪或权限不足）"
         reset="$reset  $wt_branch\n"
         reset_done=true
       else
@@ -262,6 +269,9 @@ for wt_branch in $worktree_branches; do
          git -C "$wt_path" diff --cached --quiet 2>/dev/null; then
         git -C "$wt_path" fetch origin main
         git -C "$wt_path" reset --hard origin/main
+        git -C "$wt_path" push --force origin "$wt_branch" 2>/dev/null && \
+          force_pushed="$force_pushed  $wt_branch\n" || \
+          echo "  警告: $wt_branch force push 失败（可能无远程追踪或权限不足）"
         reset="$reset  $wt_branch\n"
         reset_done=true
       else
@@ -275,7 +285,8 @@ for wt_branch in $worktree_branches; do
   if ! $reset_done; then
     if git show-ref --verify --quiet "refs/heads/$wt_branch"; then
       git update-ref "refs/heads/$wt_branch" origin/main
-      reset="$reset  $wt_branch (ref only)\n"
+      # 跨环境无法直接 force push worktree 分支，待 worktree 环境中 sync 时处理
+      reset="$reset  $wt_branch (ref only, remote not cleaned)\n"
     else
       echo "  跳过 $wt_branch: 分支不存在且目录不可见，等待 Docker 环境中 sync"
     fi
@@ -292,6 +303,31 @@ for branch in $(git branch --merged main --format='%(refname:short)' | grep -E '
     cleaned="$cleaned  $branch\n"
   }
 done
+
+# === 同步所有活跃 worktree 到最新 main ===
+# 目的: 避免未合并 PR 的 worktree 落后 main，减少后续 merge 冲突
+# 策略: 只重置无本地变更的 worktree，有变更的跳过
+while IFS= read -r line; do
+  wt_path=$(echo "$line" | awk '{print $1}')
+  wt_branch=$(echo "$line" | awk '{gsub(/[\[\]]/,"",$3); print $3}')
+
+  # 跳过 main 本身
+  [[ "$wt_branch" == "main" ]] && continue
+
+  # 跳过已合并的分支（上面已处理）
+  echo "$worktree_branches" | grep -qw "$wt_branch" && continue
+
+  # 检查是否有未提交变更
+  if git -C "$wt_path" diff --quiet 2>/dev/null && \
+     git -C "$wt_path" diff --cached --quiet 2>/dev/null; then
+    git -C "$wt_path" fetch origin main 2>/dev/null
+    git -C "$wt_path" reset --hard origin/main 2>/dev/null && {
+      echo "  同步: $wt_branch → origin/main"
+    }
+  else
+    echo "  跳过 $wt_branch: 工作区有未提交更改"
+  fi
+done < <(git worktree list 2>/dev/null | grep '\[')
 ```
 
 ---
@@ -316,6 +352,12 @@ if [[ -n "$reset" ]]; then
   echo ""
   echo "已重置 worktree 分支:"
   echo -e "$reset"
+fi
+
+if [[ -n "$force_pushed" ]]; then
+  echo ""
+  echo "已 force push 清理远程分支（消除幽灵 commit）:"
+  echo -e "$force_pushed"
 fi
 
 if [[ -n "$cleaned" ]]; then

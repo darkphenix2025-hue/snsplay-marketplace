@@ -1,0 +1,100 @@
+{
+  "agents": {
+    "list": [
+      {
+        "id": "meta-warden",
+        "default": true,
+        "name": "Meta-Warden: Meta Department Manager",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-warden"
+      },
+      {
+        "id": "meta-genesis",
+        "default": false,
+        "name": "Meta-Genesis: Soul Meta 🧬",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-genesis"
+      },
+      {
+        "id": "meta-artisan",
+        "default": false,
+        "name": "Meta-Artisan: Craft Meta 🎨",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-artisan"
+      },
+      {
+        "id": "meta-sentinel",
+        "default": false,
+        "name": "Meta-Sentinel: Sentinel Meta",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-sentinel"
+      },
+      {
+        "id": "meta-librarian",
+        "default": false,
+        "name": "Meta-Librarian: Archive Meta",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-librarian"
+      },
+      {
+        "id": "meta-conductor",
+        "default": false,
+        "name": "Meta-Conductor: Orchestration Meta",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-conductor"
+      },
+      {
+        "id": "meta-prism",
+        "default": false,
+        "name": "Meta-Prism: Iterative Reviewer",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-prism"
+      },
+      {
+        "id": "meta-scout",
+        "default": false,
+        "name": "Meta-Scout: Tool Discoverer 🔭",
+        "workspace": "__REPO_ROOT__\\openclaw\\workspaces\\meta-scout"
+      }
+    ]
+  },
+  "bindings": [],
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "session-memory": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        },
+        "boot-md": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": ["__REPO_ROOT__\\openclaw\\skills"]
+    }
+  },
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": [
+        "meta-warden",
+        "meta-genesis",
+        "meta-artisan",
+        "meta-sentinel",
+        "meta-librarian",
+        "meta-conductor",
+        "meta-prism",
+        "meta-scout"
+      ]
+    }
+  },
+  "mcp": {
+    "servers": {
+      "meta-kim-runtime": {
+        "command": "node",
+        "args": ["__REPO_ROOT__/scripts/mcp/meta-runtime-server.mjs"],
+        "env": {}
+      }
+    }
+  }
+}

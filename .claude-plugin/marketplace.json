@@ -41,7 +41,9 @@
         "./skills/sync",
         "./skills/ui-verify",
         "./skills/video-recorder",
-        "./skills/worktree"
+        "./skills/worktree",
+        "./skills/security-check",
+        "./skills/ai-security-review"
       ]
     }
   ]
